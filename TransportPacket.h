@@ -4,7 +4,7 @@
 #pragma interface
 #endif
 #ifdef IMPLEMENTING_TRANSPORTPACKET
-static const char *rcsid_Nbp = "@(#)$Id";
+static const char *rcsid_Nbp = "@(#)$Id$";
 #endif /* IMPLEMENTING_TRANSPORTPACKET */
 #include <fstream>
 #include <iostream>
