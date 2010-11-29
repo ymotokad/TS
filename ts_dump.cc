@@ -31,14 +31,19 @@ int main(int argc, char *argv[]) {
    argc -= optind;
    argv += optind;
 
-   // Read header informations.
-   while (!std::cin.eof()) {
-      TransportPacket packet;
+   std::cin.exceptions(std::ios::badbit);
+   try {
+      // Read header informations.
+      while (!std::cin.eof()) {
+	 TransportPacket packet;
 
-      int len = packet.load(&std::cin);
-      if (len <= 0) break;
-      packet.dump(&std::cout);
+	 int len = packet.load(&std::cin);
+	 if (len <= 0) break;
+	 packet.dump(&std::cout);
+      }
+   } catch (const std::ios::failure& error) {
+      std::cerr << "I/O exception: " << error.what() << std::endl;
+      return 1;
    }
-
    return 0;
 }
