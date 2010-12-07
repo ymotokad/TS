@@ -11,18 +11,29 @@
 static char PacketSection_rcsid[] = "@(#)$Id$";
 #endif
 #include <iostream>
+#include "TSTypes.h"
+#include "TSContext.h"
+#include "BitStreamSyntax.h"
+#include "ByteArrayBuffer.h"
 
-typedef unsigned char uint8;	// 8bit unsigned integer
-typedef unsigned short uint16;	// 16bit unsigned integer
-
-class PacketSection {
-public:
-   virtual int load(uint8 *buffer) = 0;
+class PacketSection : public BitStreamSyntax {
+ public:
+   virtual ~PacketSection();
+   virtual int load(TSContext *tsc, std::istream *inputstream) = 0;
+   virtual int load(const ByteArray *data) = 0;
+   virtual void process(TSContext *tsc) = 0;
    virtual void dump(std::ostream *outputstream) const = 0;
-protected:
-   uint8 *bytes;
+   static void hexdump(std::ostream *osp, const ByteArray *buff, int indent, int len);
+   void hexdump(std::ostream *osp, int indent, int len) const;
+   void hexdump(std::ostream *osp, int indent) const;
 };
 
-void hexdump(std::ostream *osp, const uint8 *buf, int len, int indent);
+inline void PacketSection::hexdump(std::ostream *osp, int indent) const {
+   hexdump(osp, indent, -1);
+}
+
+inline void PacketSection::hexdump(std::ostream *osp, int indent, int len) const {
+   hexdump(osp, getBuffer(), indent, len);
+}
 
 #endif /* PACKETSECTION_H */

@@ -13,35 +13,69 @@ static char rcsid[] = "@(#)$Id$";
 #define IMPLEMENTING_ADAPTATIONFIELD
 #include "AdaptationField.h"
 
+static AdaptationField nullobj;
+static const int the_field_width[] = {
+   8,	// AdaptationField_adaptation_field_length		0
+   1,	// AdaptationField_discontinuity_indicator		1
+   1,	// AdaptationField_random_access_indicator		2
+   1,	// AdaptationField_elementary_stream_priority_indicator	3
+   1,	// AdaptationField_PCR_flag				4
+   1,	// AdaptationField_OPCR_flag				5
+   1,	// AdaptationField_splicing_point_flag			6
+   1,	// AdaptationField_transport_private_data_flag		7
+   1,	// AdaptationField_adaptation_field_extension_flag	8
+   0	// AdaptationField_stuffing_bytes			9
+};
+
+static int field_width(int position) {
+   int n = the_field_width[position];
+   return (n + sizeof(uint8) - 1) / sizeof(uint8);
+}
+
 /*
  * constructors 
  */
-
 AdaptationField::AdaptationField() {
+   static int *the_bit_distance = NULL;
+
+   if (this == &nullobj) {
+      int len = sizeof(the_field_width) / sizeof(the_field_width[0]);
+      the_bit_distance = new int[len + 1];
+      initializeBitDistance(the_field_width, len, the_bit_distance);
+   }
+   assert(the_bit_distance != NULL);
+   setBitDistance(the_bit_distance);
 }
 
-
-/*
- * destructors 
- */
-
-AdaptationField::~AdaptationField() {
-}
 
 /*
  * other methods
  */
-int AdaptationField::load(uint8 *buffer) {
-   // Header
-   bytes = buffer;
-   return field_length() + 1;
+
+int AdaptationField::load(const ByteArray *data) {
+   return 0;
+}
+
+int AdaptationField::load(TSContext *tsc, std::istream *isp) {
+   ByteArrayBuffer *section = new ByteArrayBuffer();
+   setBuffer(section);
+
+   int n = field_width(AdaptationField_adaptation_field_length) / 8;
+   if (readin(isp, section, n) != n) return 0;
+   n = adaptation_field_length();
+   if (readin(isp, section, n) != n) return 0;
+   
+   setFullLength(section->length());
+   return section->length();
+}
+
+void AdaptationField::process(TSContext *tsc) {
+   return;
 }
 
 void AdaptationField::dump(std::ostream *osp) const {
    *osp << "  -- Adaptation Field";
-   *osp << " len=" << std::dec << (int)field_length();
+   *osp << " len=" << std::dec << (int)adaptation_field_length();
    *osp << std::endl;
-   *osp << "    byte0: " << std::hex << std::showbase << (unsigned int)bytes[0] << std::endl;
-   *osp << "    byte1: " << std::hex << std::showbase << (unsigned int)bytes[1] << std::endl;
-   hexdump(osp, bytes, field_length() - 2, 4);
+   hexdump(osp, 4);
 }

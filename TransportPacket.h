@@ -8,34 +8,42 @@ static const char *rcsid_Nbp = "@(#)$Id$";
 #endif /* IMPLEMENTING_TRANSPORTPACKET */
 #include <fstream>
 #include <iostream>
+#include "ByteArrayBuffer.h"
+#include "BitStreamSyntax.h"
 #include "PacketSection.h"
 #include "AdaptationField.h"
 #include "ProgramAssociationSection.h"
+#include "ProgramMapSection.h"
+#include "TSContext.h"
 
-class TransportPacket {
+class TransportPacket;
+
+class TransportPacket : public PacketSection {
  public:
    TransportPacket();
    ~TransportPacket();
-   int load(std::istream *inputstream);
+   int load(TSContext *tsc, std::istream *inputstream);
+   int load(const ByteArray *);
+   void process(TSContext *tsc);
    void dump(std::ostream *outputstream) const;
-   void dump_hex(std::ostream *outputstream) const;
+   void dump(TSContext *tsc, std::ostream *outputstream) const;
    uint16 PID() const;
  protected:
-   static const int sizeOfHeader = 4;
    uint8 sync_byte() const;
    bool transport_error_indicator() const;
    bool payload_unit_start_indicator() const;
    bool transport_priority() const;
    uint8 transport_scrambling_control() const;
    uint8 adaptation_field_control() const;
-   bool hasAdaptationField() const;
-   bool hasPayload() const;
+   bool has_adaptation_field() const;
+   bool has_payload() const;
    uint8 continuity_counter() const;
 
-   uint8 bytes[512];
    AdaptationField *adaptationField;
-   int sizePayload;
-   uint8 *payload;
+   ProgramAssociationSection *programAssociationSection;
+   ProgramMapSection *programMapSection;
+   ByteArray *payload;
+   int length;
 };
 
 #define SYNC_BYTE_VALUE 0x47
@@ -45,40 +53,19 @@ class TransportPacket {
 #define PID_TransportStreamDescriptionTable	0x0002
 #define PID_NullPacket				0x1fff
 
-inline uint8 TransportPacket::sync_byte() const {
-   return bytes[0];
-};
-inline bool TransportPacket::transport_error_indicator() const {
-   return (bytes[1] & 0x80) == 0x80;
-};
-inline bool TransportPacket::payload_unit_start_indicator() const {
-   return (bytes[1] & 0x40) == 0x40;
-};
-inline bool TransportPacket::transport_priority() const {
-   return (bytes[1] & 0x20) == 0x20;
-};
-inline uint16 TransportPacket::PID() const {
-   return (((bytes[1] & 0x1f) << 8) | bytes[2]);
-};
-inline uint8 TransportPacket::transport_scrambling_control() const {
-   return (bytes[3] & 0xc0) >> 6;
-};
-inline uint8 TransportPacket::adaptation_field_control() const {
-   return (bytes[3] & 0x30) >> 4;
-};
-inline bool TransportPacket::hasAdaptationField() const {
-   return (bytes[3] & 0x20) == 0x20;
-};
-inline bool TransportPacket::hasPayload() const {
-   return (bytes[3] & 0x10) == 0x10;
-};
-inline uint8 TransportPacket::continuity_counter() const {
-   return (bytes[3] & 0x0f);
-};
+/*
+ * Order of data
+ */
+#define TransportPacket_sync_byte			0
+#define TransportPacket_transport_error_indicator	1
+#define TransportPacket_payload_unit_start_indicator	2
+#define TransportPacket_transport_priority		3
+#define TransportPacket_PID				4
+#define TransportPacket_transport_scrambling_control	5
+#define TransportPacket_has_adaptation_field		6
+#define TransportPacket_has_payload			7
+#define TransportPacket_continuity_counter		8
+#define TransportPacket_StartOfData			9
 
-
-
-   
-   
 
 #endif /* TRANSPORTPACKET_H */

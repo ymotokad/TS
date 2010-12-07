@@ -5,6 +5,7 @@
 #include <iostream>
 #include <getopt.h>
 #include "TransportPacket.h"
+#include "TSContext.h"
 
 static char rcsid[] = "@(#)$Id$";
 
@@ -31,15 +32,17 @@ int main(int argc, char *argv[]) {
    argc -= optind;
    argv += optind;
 
+   TSContext tsc;
    std::cin.exceptions(std::ios::badbit);
    try {
       // Read header informations.
       while (!std::cin.eof()) {
 	 TransportPacket packet;
 
-	 int len = packet.load(&std::cin);
+	 int len = packet.load(&tsc, &std::cin);
 	 if (len <= 0) break;
-	 packet.dump(&std::cout);
+	 packet.process(&tsc);
+	 packet.dump(&tsc, &std::cout);
       }
    } catch (const std::ios::failure& error) {
       std::cerr << "I/O exception: " << error.what() << std::endl;

@@ -11,7 +11,7 @@ ts_dump: $(OBJS) ts_dump.o
 	$(CXX) -o $@ $(OBJS) ts_dump.o $(LIBS)
 
 clean:
-	@rm -f $(OBJS) *.o *~
+	@rm -f $(OBJS) *.o *~ ts_dump
 
 .cc.o:
 	$(CXX) $(CXXFLAGS) -c $<
