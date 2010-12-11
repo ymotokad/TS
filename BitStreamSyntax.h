@@ -13,16 +13,17 @@ class BitStreamSyntax {
    BitStreamSyntax();
    virtual ~BitStreamSyntax();
 
+   void setBuffer(const ByteArray *data);
+   const ByteArray *getBuffer() const;
+   bool isCompleted() const;
+   virtual int append(const ByteArray &src);
+ protected:
    // Bitfield methods. start starts eith 0. 
    bool bit_field1(int position) const;
    uint8 bit_field8(int position) const;
    uint16 bit_field16(int position) const;
-   void setBuffer(const ByteArray *data);
-   const ByteArray *getBuffer() const;
+   
    void setFullLength(int len);
-   bool isCompleted() const;
-   virtual int append(const ByteArray &src);
- protected:
    static int readin(std::istream *inputstream, ByteArrayBuffer *buffer, int size);
    static void initializeBitDistance(const int *the_field_width, int length, int *the_bit_distance);
    void setBitDistance(const int *the_bit_distance);
