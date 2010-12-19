@@ -31,7 +31,7 @@ class TSContext {
    std::map<uint16, uint16> PMT_PIDs;
    std::map<uint16, PacketSection*> incompleteSections;
 };
-  
-   
+
+
 
 #endif /* TSCONTEXT_H */
