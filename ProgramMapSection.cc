@@ -62,7 +62,7 @@ inline const char*stream_type(int sid) {
       return stream_type_descriptions[sid];
    }
    if (sid < 0x7f) return "ITU-T Rec. H.222.0 | ISO/IEC 13818-1 Reserved";
-   return "User Provate";
+   return "User Private";
 }
 
 /*
