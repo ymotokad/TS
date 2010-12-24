@@ -51,6 +51,7 @@ TransportPacket::TransportPacket() {
 
 TransportPacket::TransportPacket(std::istream *isp) {
    initBitDistance();
+   adaptationField = NULL;
    payload = NULL;
 
    // Read into buffer
@@ -62,11 +63,11 @@ TransportPacket::TransportPacket(std::istream *isp) {
    // Check if it has adaptation field and payload
    int offset = sizeofBufferBefore(TransportPacket_StartOfData);
    if (has_adaptation_field()) {
-      ByteArray *dt = buffer->subarray(offset);
+      int len = 1 + byteAt(offset);
       AdaptationField *af = new AdaptationField();
-      af->setBuffer(dt);
+      af->setBuffer(buffer->subarray(offset, len));
       adaptationField = af;
-      offset += byteAt(offset);
+      offset += len;
    }
    if (has_payload()) {
       payload = buffer->subarray(offset);
