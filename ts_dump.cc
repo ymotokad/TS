@@ -4,12 +4,13 @@
  */
 #include <iostream>
 #include <getopt.h>
-#include "TransportPacket.h"
-#include "TSContext.h"
+#include "TransportStream.h"
+#include "StdLogger.h"
 
 static char rcsid[] = "@(#)$Id$";
 
 bool opt_v = false;
+Logger *logger;
 
 int main(int argc, char *argv[]) {
    int i;
@@ -32,21 +33,14 @@ int main(int argc, char *argv[]) {
    argc -= optind;
    argv += optind;
 
-   TSContext tsc;
-   std::cin.exceptions(std::ios::badbit);
-   try {
-      // Read header informations.
-      while (!std::cin.eof()) {
-	 TransportPacket packet;
+   logger = new StdLogger(LOGGER_ERROR | LOGGER_DEBUG);
 
-	 int len = packet.load(&tsc, &std::cin);
-	 if (len <= 0) break;
-	 packet.process(&tsc);
-	 packet.dump(&tsc, &std::cout);
-      }
-   } catch (const std::ios::failure& error) {
-      std::cerr << "I/O exception: " << error.what() << std::endl;
-      return 1;
-   }
+   TransportStream ts;
+   ts.setProcessOption_dump(true);
+   ts.setProcessOption_showProgramInfo(true);
+   ts.setProcessOption_writeTransportStream(NULL, false);
+   
+   ts.process(&std::cin);
+   
    return 0;
 }

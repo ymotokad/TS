@@ -9,9 +9,9 @@ static char rcsid[] = "@(#)$Id$";
 #pragma implementation
 #endif
 #include <assert.h>
-#include <iostream>
 #define IMPLEMENTING_TRANSPORTPACKET
 #include "TransportPacket.h"
+#include "AdaptationField.h"
 #include "ProgramMapSection.h"
 
 static TransportPacket nullobj;
@@ -28,18 +28,53 @@ static const int the_field_width[] = {
    0	// TransportPacket_StartOfData			9
 };
 
+static int readin(std::istream *isp, ByteArrayBuffer *buffer, int length) {
+   uint8 buff[length];
+
+   //std::cout << "DBG: readin(isp, packet, ength=" << length << ")";
+   isp->read((char *)buff, length);
+   buffer->append(buff, length);
+   //std::cout << "...read " << std::dec << isp->gcount() << " bytes" << std::endl;
+   return isp->gcount();
+}
+
+
 /*
  * constructors 
  */
 
-TransportPacket::TransportPacket() : PacketSection() {
-   static int *the_bit_distance = NULL;
-
+TransportPacket::TransportPacket() {
+   initBitDistance();
    adaptationField = NULL;
-   programAssociationSection = NULL;
-   programMapSection = NULL;
    payload = NULL;
-   
+}
+
+TransportPacket::TransportPacket(std::istream *isp) {
+   initBitDistance();
+   payload = NULL;
+
+   // Read into buffer
+   uint8 buff[SIZEOF_PACKET];
+   isp->read((char *)buff, SIZEOF_PACKET);
+   ByteArrayBuffer *buffer = new ByteArrayBuffer(buff, SIZEOF_PACKET);
+   setBuffer(buffer);
+
+   // Check if it has adaptation field and payload
+   int offset = sizeofBufferBefore(TransportPacket_StartOfData);
+   if (has_adaptation_field()) {
+      ByteArray *dt = buffer->subarray(offset);
+      AdaptationField *af = new AdaptationField();
+      af->setBuffer(dt);
+      adaptationField = af;
+      offset += byteAt(offset);
+   }
+   if (has_payload()) {
+      payload = buffer->subarray(offset);
+   }
+}
+
+void TransportPacket::initBitDistance() {
+   static int *the_bit_distance = NULL;
    
    if (this == &nullobj) {
       int len = sizeof(the_field_width) / sizeof(the_field_width[0]);
@@ -57,8 +92,6 @@ TransportPacket::TransportPacket() : PacketSection() {
 
 TransportPacket::~TransportPacket() {
    if (adaptationField != NULL) delete adaptationField;
-   if (programAssociationSection != NULL) delete programAssociationSection;
-   if (programMapSection != NULL) delete programMapSection;
    if (payload != NULL) delete payload;
 }
 
@@ -67,10 +100,8 @@ TransportPacket::~TransportPacket() {
  * other methods
  */
 
-int TransportPacket::load(const ByteArray *data) {
-   return 0;
-}
 
+/*
 int TransportPacket::load(TSContext *tsc, std::istream *isp) {
    ByteArrayBuffer *buff = new ByteArrayBuffer();
    setBuffer(buff);
@@ -137,104 +168,5 @@ void TransportPacket::process(TSContext *tsc) {
       }
    }
 }
-
-void TransportPacket::dump(std::ostream *osp) const {
-   *osp << "TransportPacket::dump(std::ostream *osp) const ...not yet implemented!!" << std::endl;
-}
-
-void TransportPacket::dump(TSContext *tsc, std::ostream *osp) const {
-   *osp << "-- Packet";
-   const char *pid;
-   switch (PID()) {
-   case PID_ProgramAssociationTable:
-      pid = "Program Association Table";
-      break;
-   case PID_ConditionalAccessTable:
-      pid = "Conditional Access Table";
-      break;
-   case PID_TransportStreamDescriptionTable:
-      pid = "Transport Stream Description Table";
-      break;
-   case PID_NullPacket:
-      pid = "Null Packet";
-      break;
-   default:
-      pid = NULL;
-   }
-
-   if (pid) {
-      *osp << " PID=" << pid;
-   } else {
-      *osp << " PID=" << std::hex << std::showbase << (int)PID();
-   }
-   if (pid == NULL && tsc->isProgramMapTablePID(PID())) {
-      *osp << "(PMT)";
-   }
-   *osp << " cc=" << std::dec << (int)continuity_counter();
-   *osp << std::endl;
-   //*osp << "  Packet.length: " << length << std::endl;
-   if (payload_unit_start_indicator()) {
-      *osp << "  payload_unit_start_indicator: 1" << std::endl;
-   }
-
-   if (PID() == PID_ProgramAssociationTable) {
-      programAssociationSection->dump(osp);
-   } else if (tsc->isProgramMapTablePID(PID())) {
-      if (programMapSection != NULL && programMapSection->isCompleted()) {
-	 programMapSection->dump(osp);
-      }
-   } else {
-      //*osp << "  byte0: " << std::hex << std::showbase << (unsigned int)bytes[0] << std::endl;
-      //*osp << "  byte1: " << std::hex << std::showbase << (unsigned int)bytes[1] << std::endl;
-      //*osp << "  byte2: " << std::hex << std::showbase << (unsigned int)bytes[2] << std::endl;
-      //*osp << "  byte3: " << std::hex << std::showbase << (unsigned int)bytes[3] << std::endl;
-      //*osp << std::dec;
-      //*osp << "  hasAdaptationField: " << (bool)hasAdaptationField() << std::endl;
-      //*osp << "  hasPayload: " << (bool)hasPayload() << std::endl;
-      
-      //hexdump(osp, bytes, length, 4);
-
-      if (has_adaptation_field()) {
-	 adaptationField->dump(osp);
-      }
-
-      if (has_payload()) {
-	 //*osp << "  -- Payoad";
-	 //*osp << std::endl;
-	 //hexdump(osp, payload, sizePayload, 4);
-      }
-   }
-}
-
-uint16 TransportPacket::PID() const {
-   return bit_field16(TransportPacket_PID);
-}
-
-bool TransportPacket::transport_error_indicator() const {
-   return bit_field1(TransportPacket_transport_error_indicator);
-}
-
-bool TransportPacket::payload_unit_start_indicator() const {
-   return bit_field1(TransportPacket_payload_unit_start_indicator);
-}
-
-bool TransportPacket::transport_priority() const {
-   return bit_field1(TransportPacket_transport_priority);
-}
-
-uint8 TransportPacket::transport_scrambling_control() const {
-   return bit_field8(TransportPacket_transport_scrambling_control);
-}
-
-bool TransportPacket::has_adaptation_field() const {
-   return bit_field1(TransportPacket_has_adaptation_field);
-}
-
-bool TransportPacket::has_payload() const {
-   return bit_field1(TransportPacket_has_payload);
-}
-
-uint8 TransportPacket::continuity_counter() const {
-   return bit_field8(TransportPacket_continuity_counter);
-}
+*/
 
