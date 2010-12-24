@@ -52,30 +52,9 @@ AdaptationField::AdaptationField() {
  * other methods
  */
 
-int AdaptationField::load(const ByteArray *data) {
-   return 0;
-}
-
-int AdaptationField::load(TSContext *tsc, std::istream *isp) {
-   ByteArrayBuffer *section = new ByteArrayBuffer();
-   setBuffer(section);
-
-   int n = field_width(AdaptationField_adaptation_field_length) / 8;
-   if (readin(isp, section, n) != n) return 0;
-   n = adaptation_field_length();
-   if (readin(isp, section, n) != n) return 0;
-   
-   setFullLength(section->length());
-   return section->length();
-}
-
-void AdaptationField::process(TSContext *tsc) {
-   return;
-}
-
 void AdaptationField::dump(std::ostream *osp) const {
    *osp << "  -- Adaptation Field";
    *osp << " len=" << std::dec << (int)adaptation_field_length();
    *osp << std::endl;
-   hexdump(osp, 4);
+   hexdump(4, osp);
 }

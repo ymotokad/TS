@@ -6,20 +6,16 @@
 #ifdef IMPLEMENTING_ADAPTATIONFIELD
 static const char *rcsid_Nbp = "@(#)$Id$";
 #endif /* IMPLEMENTING_ADAPTATIONFIELD */
-#include "PacketSection.h"
-#include "BitStreamSyntax.h"
+#include "BitStream.h"
 
 class AdaptationField;
 
-class AdaptationField : public PacketSection {
+class AdaptationField : public BitStream {
  public:
    AdaptationField();
-   int load(TSContext *tsc, std::istream *inputstream);
-   int load(const ByteArray *data);
-   void process(TSContext *tsc);
-   void dump(std::ostream *outputstream) const;
- protected:
+   void dump(std::ostream *osp) const;
    int adaptation_field_length() const;
+ protected:
    /*
    bool hasPCR() const;
    bool hasOPCR() const;

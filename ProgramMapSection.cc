@@ -14,7 +14,7 @@ static char rcsid[] = "@(#)$Id$";
 #define IMPLEMENTING_PROGRAMMAPSECTION
 #include "ProgramMapSection.h"
 
-static ProgramMapSection nullobj;
+static ProgramMapSection nullobj(0);
 static const int the_field_width[] = {
    8,	// PMS_table_id					0
    1,	// PMS_section_syntax_indicator			1
@@ -68,7 +68,7 @@ inline const char*stream_type(int sid) {
 /*
  * constructors 
  */
-ProgramMapSection::ProgramMapSection() {
+ProgramMapSection::ProgramMapSection(uint8 continuous_counter) : PSI (continuous_counter) {
    static int *the_bit_distance = NULL;
 
    if (this == &nullobj) {
@@ -87,42 +87,25 @@ ProgramMapSection::ProgramMapSection() {
 /*
  * other methods
  */
-int ProgramMapSection::load(TSContext *tsc, std::istream *isp) {
-   return 0;
-}
-int ProgramMapSection::load(const ByteArray *data) {
-   assert(getBuffer() == NULL);
-   ByteArrayBuffer *buf = new ByteArrayBuffer(*data);
-   setBuffer(buf);
-   setFullLength(sizeofBufferBefore(PMS_section_length + 1) + section_length());
-   return buf->length();
-}
 
-void ProgramMapSection::process(TSContext *tsc) {
-   /*
-   assert(getBuffer()->length() >= sizeofBufferBefore(PMS_section_length + 1) + section_length());
-   if (table_id() != TableID_TSProgramMapSection) {
-      hexdump(&std::cout, 2);
-      assert(table_id() == TableID_TSProgramMapSection);
-   }
-   */
-
-   int len = program_info_length();
-   for (int i = 0; (i * 4) < len; i++) {
-      // descriptor
-   }
+bool ProgramMapSection::isComplete() const {
+   assert(bufferAllocated());
+   int expected_length = sizeofBufferBefore(PMS_section_length + 1)
+      + section_length();
+   //logger->debug("ProgramMapSection::isComplete(): expected_length=%d, bufferLength()=%d", expected_length, bufferLength());
+   return expected_length <= bufferLength();
 }
 
 void ProgramMapSection::dump(std::ostream *osp) const {
    if (table_id() != 2) {
-      hexdump(osp, 2);
+      hexdump(2, osp);
       return;
    }
    try {
       const char *tid;
       *osp << "  table_id=" << std::hex << std::showbase << (int)table_id() << std::endl;
       *osp << "  section_length=" << std::dec << section_length()
-	   << " (short of " << (int)(sizeofBufferBefore(PMS_section_length + 1) + section_length() - getBuffer()->length()) << " bytes)" << std::endl;
+	   << " (short of " << (int)(sizeofBufferBefore(PMS_section_length + 1) + section_length() - bufferLength()) << " bytes)" << std::endl;
       *osp << "  program_number=" << std::dec << program_number() << std::endl;
       *osp << "  current_next_indicator=" << std::dec << current_next_indicator() << std::endl;
       *osp << "  section_number=" << std::dec << section_number() << std::endl;
@@ -132,29 +115,25 @@ void ProgramMapSection::dump(std::ostream *osp) const {
       int idx = sizeofBufferBefore(PMS_START_PROGRAM_DATA);
       int idxmax = idx + program_info_length();
       while (idx < idxmax) {
-	 int desctag = getBuffer()->at(idx);
-	 int desclen = getBuffer()->at(idx + 1);
+	 int desctag = byteAt(idx);
+	 int desclen = byteAt(idx + 1);
 	 *osp << "    tag=" << std::dec << desctag << std::endl;
 	 *osp << "    len=" << std::dec << desclen << std::endl;
-	 ByteArray *data = getBuffer()->subarray(idx, desclen + 2);
-	 hexdump(osp, data, 4, -1);
-	 delete data;
+	 hexdump(4, osp, idx, desclen + 2);
 	 idx += 2 + desclen;
       }
       *osp << "  stream info" << std::endl;
       idxmax = sizeofBufferBefore(PMS_section_length + 1) + section_length() - 4;
       while (idx < idxmax) {
-	 int sttype = getBuffer()->at(idx);
-	 int elmpid = getBuffer()->at(idx + 1) << 8 | getBuffer()->at(idx + 2);
+	 int sttype = byteAt(idx);
+	 int elmpid = byteAt(idx + 1) << 8 | byteAt(idx + 2);
 	 elmpid &= 0x1fff;
-	 int eslen = getBuffer()->at(idx + 3) << 8 | getBuffer()->at(idx + 4);
+	 int eslen = byteAt(idx + 3) << 8 | byteAt(idx + 4);
 	 eslen &= 0x0fff;
 	 *osp << "    --stream_type=" << std::hex << std::showbase << stream_type(sttype) << std::endl;
 	 *osp << "    elm_PID=" << std::hex << std::showbase << elmpid << std::endl;
 	 *osp << "    ES_len=" << std::dec << eslen << std::endl;
-	 ByteArray *data = getBuffer()->subarray(idx, 5 + eslen);
-	 hexdump(osp, data, 4, -1);
-	 delete data;
+	 hexdump(4, osp, idx, 5 + eslen);
 	 idx += 5 + eslen;
       }
    } catch (ByteArrayOverflowException e) {

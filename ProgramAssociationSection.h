@@ -4,18 +4,17 @@
 #pragma interface
 #endif
 #ifdef IMPLEMENTING_PROGRAMASSOCIATIONSECTION
-static const char *rcsid_Nbp = "@(#)$Id$";
+static const char *rcsid_ProgramAssociationSection = "@(#)$Id$";
 #endif /* IMPLEMENTING_PROGRAMASSOCIATIONSECTION */
-#include "PacketSection.h"
+#include "PSI.h"
 
-class ProgramAssociationSection : public PacketSection {
+class ProgramAssociationSection : public PSI {
  public:
-   ProgramAssociationSection();
-   int load(TSContext *tsc, std::istream *isp);
-   int load(const ByteArray *data);
-   void process(TSContext *tsc);
+   ProgramAssociationSection(uint8 continuous_counter);
    void dump(std::ostream *osp) const;
- protected:
+   bool isComplete() const;
+   int numPrograms() const;
+
    uint8 table_id() const;
    bool section_syntax_indicator() const;
    uint16 section_length() const;
@@ -27,6 +26,7 @@ class ProgramAssociationSection : public PacketSection {
    uint16 program_number(int idx) const;
    uint16 network_PID(int idx) const;
    uint16 program_map_PID(int idx) const;
+ protected:
 };
 
 #define TableID_ProgramAssociationSection	0x00
@@ -51,5 +51,37 @@ class ProgramAssociationSection : public PacketSection {
 #define PAS_last_section_number				10
 #define PAS_START_PROGRAM_DATA				11
 
+
+inline uint8 ProgramAssociationSection::table_id() const {
+   return bit_field8(PAS_table_id);
+}
+
+inline bool ProgramAssociationSection::section_syntax_indicator() const {
+   return bit_field1(PAS_section_syntax_indicator);
+}
+
+inline uint16 ProgramAssociationSection::section_length() const {
+   return bit_field16(PAS_section_length);
+}
+
+inline uint16 ProgramAssociationSection::transport_stream_id() const {
+   return bit_field16(PAS_transport_stream_id);
+}
+
+inline uint8 ProgramAssociationSection::version_number() const {
+   return bit_field8(PAS_version_number);
+}
+
+inline bool ProgramAssociationSection::current_next_indicator() const {
+   return bit_field1(PAS_current_next_indicator);
+}
+
+inline uint8 ProgramAssociationSection::section_number() const {
+   return bit_field8(PAS_section_number);
+}
+
+inline uint8 ProgramAssociationSection::last_section_number() const {
+   return bit_field8(PAS_last_section_number);
+}
 
 #endif /* PROGRAMASSOCIATIONSECTION_H */

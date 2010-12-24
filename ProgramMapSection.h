@@ -6,17 +6,14 @@
 #ifdef IMPLEMENTING_PROGRAMMAPSECTION
 static const char *rcsid_ProgramMapSection = "@(#)$Id$";
 #endif /* IMPLEMENTING_PROGRAMMAPSECTION */
-#include "PacketSection.h"
+#include "PSI.h"
 #include "ProgramAssociationSection.h"
 
-class ProgramMapSection : public PacketSection {
+class ProgramMapSection : public PSI {
  public:
-   ProgramMapSection();
-   int load(TSContext *tsc, std::istream *inputstream);
-   int load(const ByteArray * data);
-   void process(TSContext *tsc);
-   void dump(std::ostream *outputstream) const;
- protected:
+   ProgramMapSection(uint8 continuous_counter);
+   void dump(std::ostream *osp) const;
+   bool isComplete() const;
    uint8 table_id() const;
    int section_length() const;
    bool current_next_indicator() const;
@@ -24,6 +21,7 @@ class ProgramMapSection : public PacketSection {
    int last_section_number() const;
    uint16 program_number() const;
    int program_info_length() const;
+ protected:
 };
 
 

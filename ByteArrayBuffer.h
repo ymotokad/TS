@@ -19,6 +19,20 @@ static char ByteArrayBuffer_rcsid[] = "@(#)$Id$";
 #define BYTEARRAY_INITIALCAPACITY_DEFAULT	192
 #define BYTEARRAY_CAPACITYINCREMENT_DEFAULT	192
 
+class Room {
+public:
+   Room(int size);
+   ~Room();
+   uint8 *buffer();
+   void extend(int current_size, int total_size);
+   int incr_refcnt();
+   int decr_refcnt();
+protected:
+   uint8 *data;
+   int refcnt;
+};
+
+
 class ByteArrayBuffer : public ByteArray {
 public:
    ByteArrayBuffer(int initialCapacity = BYTEARRAY_INITIALCAPACITY_DEFAULT,
