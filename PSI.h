@@ -10,7 +10,7 @@ static const char *rcsid_PSI = "@(#)$Id$";
 
 class PSI : public BitStream {
  public:
-   PSI(uint8 continuous_counter);
+   PSI(uint8 continuous_counter = 0);
    virtual bool isComplete() const = 0;
    int append(uint8 continuous_counter, const ByteArray &src);
  protected:

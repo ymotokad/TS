@@ -32,7 +32,8 @@ class TransportPacket : public BitStream {
    bool has_payload() const;
    uint8 continuity_counter() const;
  protected:
-   void initBitDistance();
+   void initobj();
+   void initvars();
    const AdaptationField *adaptationField;
    const ByteArray *payload;
 };

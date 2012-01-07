@@ -16,6 +16,7 @@ class AdaptationField : public BitStream {
    void dump(std::ostream *osp) const;
    int adaptation_field_length() const;
  protected:
+   void initobj();
    /*
    bool hasPCR() const;
    bool hasOPCR() const;

@@ -13,6 +13,7 @@ static const char Logger_rcsid[] = "@(#)$Id$";
 class Logger {
 public:
    virtual void error(const char* format, ...) = 0;
+   virtual void warning(const char* format, ...) = 0;
    virtual void debug(const char* format, ...) = 0;
 };
 

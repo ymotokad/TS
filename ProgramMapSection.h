@@ -6,44 +6,41 @@
 #ifdef IMPLEMENTING_PROGRAMMAPSECTION
 static const char *rcsid_ProgramMapSection = "@(#)$Id$";
 #endif /* IMPLEMENTING_PROGRAMMAPSECTION */
-#include "PSI.h"
+#include "Table.h"
 #include "ProgramAssociationSection.h"
 
-class ProgramMapSection : public PSI {
+class ProgramMapSection : public Section {
  public:
+   ProgramMapSection();
    ProgramMapSection(uint8 continuous_counter);
    void dump(std::ostream *osp) const;
-   bool isComplete() const;
-   uint8 table_id() const;
-   int section_length() const;
+
+   uint8 version_number() const;
    bool current_next_indicator() const;
    int section_number() const;
    int last_section_number() const;
+   uint16 PCR_PID() const;
    uint16 program_number() const;
    int program_info_length() const;
+
+protected:
+   // Order of bit stream data
+   static const int pos_program_number			= 4;
+   static const int pos_reserved2			= 5;
+   static const int pos_version_number			= 6;
+   static const int pos_current_next_indicator		= 7;
+   static const int pos_section_number			= 8;
+   static const int pos_last_section_number		= 9;
+   static const int pos_reserved3			= 10;
+   static const int pos_PCR_PID				= 11;
+   static const int pos_reserved4			= 12;
+   static const int pos_program_info_length		= 13;
+   static const int pos_START_PROGRAM_DATA		= 14;
+
  protected:
+   void initobj();
 };
 
-
-/*
- * Order of data
- */
-#define PMS_table_id					0
-#define PMS_section_syntax_indicator			1
-#define PMS_zero					2
-#define PMS_reserved1					3
-#define PMS_section_length				4
-#define PMS_program_number				5
-#define PMS_reserved2					6
-#define PMS_version_number				7
-#define PMS_current_next_indicator			8
-#define PMS_section_number				9
-#define PMS_last_section_number				10
-#define PMS_reserved3					11
-#define PMS_PCR_PID					12
-#define PMS_reserved4					13
-#define PMS_program_info_length				14
-#define PMS_START_PROGRAM_DATA				15
 
 
 #endif /* PROGRAMMAPSECTION_H */

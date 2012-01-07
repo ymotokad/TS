@@ -18,14 +18,15 @@ static const char Table_rcsid[] = "@(#)$Id$";
 class Section : public BitStream {
 public:
    Section();
-   Section(uint8 continuous_counter);
+   Section(uint8 continuity_counter);
    ~Section();
    bool isComplete() const;
-   int append(uint8 continuous_counter, const ByteArray &src, int off, int len = -1);
+   int append(uint8 continuity_counter, const ByteArray &src, int off, int len = -1);
 
    uint8 table_id() const;
    bool section_syntax_indicator() const;
    uint16 section_length() const;
+   uint8 last_continuity_counter() const;
 
 protected:
    // Order of bit stream data
@@ -39,6 +40,10 @@ protected:
    uint8 last_cc;
    void initobj();
 };
+
+inline uint8 Section::last_continuity_counter() const {
+   return last_cc;
+}
 
 /*
  * SubTable class

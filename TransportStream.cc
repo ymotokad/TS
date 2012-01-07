@@ -13,16 +13,22 @@ static char rcsid[] = "@(#)$Id$";
 #define IMPLEMENTING_TRANSPORTSTREAM
 #include "TransportStream.h"
 #include "ProgramMapSection.h"
-
+#include "ServiceDescriptionTable.h"
+#include "EventInformationTable.h"
+#include "TimeDateSection.h"
+   
 
 /*
  * constructors 
  */
 
 TransportStream::TransportStream() {
-   processOption_dump = false;
-   processOption_showProgramInfo = false;
-   processOption_writeTransportStream = false;
+   loadOption_dump = false;
+   loadOption_showProgramInfo = false;
+   loadOption_writeTransportStream = false;
+   latestTimestamp = NULL;
+   latestProgramAssociationTable = NULL;
+   tsEvent = 0;
 }
 
 
@@ -31,7 +37,10 @@ TransportStream::TransportStream() {
  */
 
 TransportStream::~TransportStream() {
-   clearProgramMapTables();   
+   clearProgramMapTables();
+   if (latestTimestamp != NULL) {
+      delete latestTimestamp;
+   }
 }
 
 
@@ -39,26 +48,78 @@ TransportStream::~TransportStream() {
  * other methods
  */
 
-void TransportStream::process(std::istream *isp) {
-   isp->exceptions(std::ios::badbit);
-   try {
-      while (!isp->eof()) {
-	 TransportPacket packet(isp);
-	 if (processOption_dump) {
-	    dumpPacket(packet);
-	 }
+int TransportStream::decode(std::istream *isp) {
+   int numRead = 0;
+   TransportPacket packet(isp);
+   if (loadOption_dump) {
+      dumpPacket(packet);
+   }
+   uint16 pid = packet.PID();
 
-	 if (packet.PID() == PID_ProgramAssociationTable) {
-	    processProgramAssociationTable(packet);
-	 } else if (isProgramMapTablePID(packet.PID())) {
-	    processProgramMapTable(packet);
-	    if (processOption_showProgramInfo && isPSIComplete()) {
-	       showPSI();
-	    }
-	 }
+   // Load carry overs
+   Section *prev = getIncompleteSection(pid);
+   if (prev != NULL) {
+      int prevlen;
+      if (packet.payload_unit_start_indicator()) {
+	 int pointer_field = packet.getPayload()->at(0);
+	 prevlen = prev->append(packet.continuity_counter(), *(packet.getPayload()), 0, pointer_field);
+      } else {
+	 prevlen = prev->append(packet.continuity_counter(), *(packet.getPayload()), 0);
       }
-   } catch (const std::ios::failure& error) {
-      std::cerr << "I/O exception: " << error.what() << std::endl;
+      if (prevlen < 0) {
+	 logger->warning("TransportStream::decode(): cc (%d) is not subsequent to prev (%d)", packet.continuity_counter(), prev->last_continuity_counter());
+      }
+      if (prev->isComplete()) {
+	 loadTable(pid, *prev);
+      }
+      unsetIncompleteSection(pid);
+      delete prev;
+   }
+
+   // Process packet
+   clearTSEvent();
+   if (pid == PID_ProgramAssociationTable ||
+       pid == PID_ServiceDescriptionTable ||
+       pid == PID_EventInformationTable ||
+       pid == PID_TimeDateSection ||
+       isProgramMapTablePID(pid)) {
+      if (packet.payload_unit_start_indicator()) {
+	 int pointer_field = packet.getPayload()->at(0);
+	 Section *sec = new Section(packet.continuity_counter());
+	 if (sec == NULL) return -1;
+	 sec->setBuffer(packet.getPayload()->subarray(1 + pointer_field));
+	 if (sec->isComplete()) {
+	    loadTable(pid, *sec);
+	    delete sec;
+	 } else {
+	    setIncompleteSection(pid, sec);
+	 }
+      } else {
+	 // There is a case that TS start captured at a middle of a program
+      }
+   } else {
+      // PES
+   }
+
+   return packet.bufferLength();
+}
+
+void TransportStream::loadTable(uint16 pid, const Section &section) {
+   if (pid == PID_ProgramAssociationTable) {
+      loadProgramAssociationTable(section);
+   } else if (isProgramMapTablePID(pid)) {
+      loadProgramMapTable(section, pid);
+      /*
+      if (loadOption_showProgramInfo && isPSIComplete()) {
+	 showPSI();
+      }
+      */
+   } else if (pid == PID_ServiceDescriptionTable) {
+      loadServiceDescriptionTable(section);
+   } else if (pid == PID_TimeDateSection) {
+      loadTimeDateSection(section);
+   } else if (pid == PID_EventInformationTable) {
+      loadEventInformationTable(section);
    }
 }
 
@@ -109,60 +170,137 @@ void TransportStream::dumpPacket(const TransportPacket &packet) const {
    }
 }
 
+void TransportStream::setIncompleteSection(uint16 pid, Section *sec) {
+   logger->debug("TransportStream::setIncompleteSection(0x%04x, 0x%lx)", pid, sec);
+   Pid2SectionMap::iterator itr = incompleteSections.find(pid);
+   if (itr != incompleteSections.end()) {
+      Section *old = itr->second;
+      incompleteSections.erase(itr);
+      logger->debug("  deleting old=0x%lx", old);
+      delete old;
+   }
+   incompleteSections[pid] = sec;
+}
+
+void TransportStream::unsetIncompleteSection(uint16 pid) {
+   logger->debug("TransportStream::unsetIncompleteSection(0x%04x)", pid);
+   Pid2SectionMap::iterator itr = incompleteSections.find(pid);
+   if (itr != incompleteSections.end()) {
+      incompleteSections.erase(itr);
+   }
+}
+
+Section *TransportStream::getIncompleteSection(uint16 pid) const {
+   Pid2SectionMap::const_iterator itr = incompleteSections.find(pid);
+   if (itr == incompleteSections.end()) return NULL;
+   return itr->second;
+}
+
 
 /*
  * PSI methods
  */
 
-void TransportStream::processProgramAssociationTable(const TransportPacket &packet) {
-   ProgramAssociationSection *pat
-      = new ProgramAssociationSection(packet.continuity_counter());
-   if (pat == NULL) {
-      assert(pat != NULL);
-      return;
-   }
-   int pointer_field = packet.getPayload()->at(0);
-   assert(pointer_field == 0);  // for now
-   pat->setBuffer(packet.getPayload()->subarray(1 + pointer_field));
-   assert(pat->isComplete()); // for now
+void TransportStream::loadProgramAssociationTable(const Section &section) {
+   ProgramAssociationSection pat;
+   pat.setBuffer(section);
+   assert(pat.isComplete());
 
    clearProgramMapTables();
-   
-   int numPrograms = pat->numPrograms();
-   //logger->debug("TransportStream::processProgramAssociationTable()");
+
+   if (latestProgramAssociationTable == NULL ||
+       latestProgramAssociationTable->version_number() != pat.version_number()) {
+      if (latestProgramAssociationTable != NULL) {
+	 delete latestProgramAssociationTable;
+      }
+      latestProgramAssociationTable = new ProgramAssociationSection();
+      latestProgramAssociationTable->setBuffer(section);
+      setTSEvent(TSEvent_Update_ProgramAssociationTable);
+   }
+
+   int numPrograms = pat.numPrograms();
+   //logger->debug("TransportStream::loadProgramAssociationTable()");
    for (int i = 0; i < numPrograms; i++) {
-      uint16 pno = pat->program_number(i);
+      uint16 pno = pat.program_number(i);
       if (pno == 0) {
 	 // Network PID
       } else {
-	 //logger->debug("  register pno=%d, pid=0x%04x", pno, pat->program_map_PID(i));
-	 setPIDByProgram(pno, pat->program_map_PID(i));
+	 //logger->debug("  register pno=%d, pid=0x%04x", pno, pat.program_map_PID(i));
+	 setPIDByProgram(pno, pat.program_map_PID(i));
       }
    }
-   delete pat;
 }
 
-void TransportStream::processProgramMapTable(const TransportPacket &packet) {
-   ProgramMapSection *pmt;
-   uint16 pid = packet.PID();
-   if (packet.payload_unit_start_indicator()) {
-      pmt = new ProgramMapSection(packet.continuity_counter());
-      if (pmt == NULL) return;
-      int pointer_field = packet.getPayload()->at(0);
-      pmt->setBuffer(packet.getPayload()->subarray(1 + pointer_field));
-      setProgramMapSectionByPID(pid, pmt);
+void TransportStream::loadProgramMapTable(const Section &section, uint16 pid) {
+   ProgramMapSection pmt;
+   pmt.setBuffer(section);
+
+   ProgramMapSection *old_pmt = getProgramMapTableByPID(pid);
+   if (old_pmt == NULL || old_pmt->version_number() != pmt.version_number()) {
+      assert(pmt.isComplete());
+      ProgramMapSection *new_pmt = new ProgramMapSection();
+      new_pmt->setBuffer(section);
+      setProgramMapSectionByPID(pid, new_pmt); // deletes old_pmt implicitly
+      programs_updated.push_back(new_pmt->program_number());
+      setTSEvent(TSEvent_Update_ProgramMapTable);
+   }
+}
+
+void TransportStream::loadServiceDescriptionTable(const Section &section) {
+   ServiceDescriptionTable sdt;
+   sdt.setBuffer(section);
+   assert(sdt.table_id() == TableID_ServiceDescriptionTable_Self ||
+	  sdt.table_id() == TableID_ServiceDescriptionTable_Other);
+   if (loadOption_dump) sdt.dump(&std::cout);
+}
+
+void TransportStream::loadTimeDateSection(const Section &section) {
+   if (latestTimestamp == NULL) {
+      latestTimestamp = new std::time_t;
+   }
+   TimeDateSection tdt;
+   tdt.setBuffer(section);
+   int table_id = tdt.table_id();
+   if (table_id == TableID_TimeDateSection) {
+      *latestTimestamp = tdt.convert();
+      if (loadOption_dump) tdt.dump(&std::cout);
    } else {
-      pmt = getProgramMapSectionByPID(pid);
-      if (pmt == NULL) {
-	 // There is a case that TS start captured at a middle of a program
+      TimeOffsetSection tot;
+      tot.setBuffer(section);
+      assert(tot.table_id() == TableID_TimeOffsetSection);
+      *latestTimestamp = tot.convert();
+      if (loadOption_dump) tot.dump(&std::cout);
+   }
+   setTSEvent(TSEvent_Update_Time);
+}
+
+void TransportStream::loadEventInformationTable(const Section &section) {
+   EventInformationTable eit;
+   eit.setBuffer(section);
+
+   assert(TableID_EventInformationTable_Self_Current <= eit.table_id() &&
+	  eit.table_id() <= TableID_EventInformationTable_max);
+
+   if (eit.table_id() == TableID_EventInformationTable_Self_Current) {
+      uint16 pno = eit.service_id();
+      uint8 ver = eit.version_number();
+      Program2VersionMap::iterator itr = latestEventInformationVersionByProgram.find(pno);
+      if (itr == latestEventInformationVersionByProgram.end()) {
+	 setTSEvent(TSEvent_Update_EventInformationTable_Self_Current);
+	 latestEventInformationVersionByProgram[pno] = ver;
       } else {
-	 int rc = pmt->append(packet.continuity_counter(), *(packet.getPayload()));
-	 if (rc < 0) {
-	    std::cout << "Warning: cc doesn't match" << std::endl;
+	 uint8 latest_version = itr->second;
+	 if (latest_version != ver) {
+	    setTSEvent(TSEvent_Update_EventInformationTable_Self_Current);
+	    latestEventInformationVersionByProgram[pno] = ver;
 	 }
+      }
+      if (loadOption_dump /* || isActiveTSEvent(TSEvent_Update_EventInformationTable_Self_Current) */) {
+	 eit.dump(&std::cout);
       }
    }
 }
+
 
 void TransportStream::setPIDByProgram(uint16 pno, uint16 pid) {
    programs.push_back(pno);
@@ -174,6 +312,11 @@ uint16 TransportStream::getPIDByProgram(uint16 pno) const {
    std::map<uint16, uint16>::const_iterator itr = program2PID.find(pno);
    if (itr == program2PID.end()) return 0;
    return itr->second;
+}
+
+bool TransportStream::isProgramMapTablePID(uint16 pid) const {
+   if (PID2Program.find(pid) == PID2Program.end()) return false;
+   return true;
 }
 
 void TransportStream::setProgramMapSectionByPID(uint16 pid, ProgramMapSection *pmt) {
@@ -188,15 +331,10 @@ void TransportStream::setProgramMapSectionByPID(uint16 pid, ProgramMapSection *p
    PID2ProgramMapSection[pid] = pmt;
 }
 
-ProgramMapSection *TransportStream::getProgramMapSectionByPID(uint16 pid) const {
+ProgramMapSection *TransportStream::getProgramMapTableByPID(uint16 pid) const {
    std::map<uint16, ProgramMapSection*>::const_iterator itr = PID2ProgramMapSection.find(pid);
    if (itr == PID2ProgramMapSection.end()) return NULL;
    return itr->second;
-}
-
-bool TransportStream::isProgramMapTablePID(uint16 pid) const {
-   if (PID2Program.find(pid) == PID2Program.end()) return false;
-   return true;
 }
 
 void TransportStream::clearProgramMapTables() {
@@ -204,7 +342,7 @@ void TransportStream::clearProgramMapTables() {
    int idx = 0;
    while (idx < programs.size()) {
       uint16 pid = getPIDByProgram(programs[idx]);
-      ProgramMapSection *pmt = getProgramMapSectionByPID(pid);
+      ProgramMapSection *pmt = getProgramMapTableByPID(pid);
       delete pmt;
       idx++;
    }
@@ -220,7 +358,7 @@ bool TransportStream::isPSIComplete() const {
    //logger->debug("TransportStream::isPSIComplete():");
    while (idx < programs.size()) {
       uint16 pid = getPIDByProgram(programs[idx]);
-      ProgramMapSection *pmt = getProgramMapSectionByPID(pid);
+      ProgramMapSection *pmt = getProgramMapTableByPID(pid);
       //logger->debug("  pid=0x%04x, pmt=0x%lx", pid, pmt);
       if (pmt == NULL || !pmt->isComplete()) return false;
       idx++;
@@ -233,10 +371,18 @@ void TransportStream::showPSI() const {
    int idx = 0;
    while (idx < programs.size()) {
       uint16 pid = getPIDByProgram(programs[idx]);
-      printf("-- program: %d, pid: 0x%04x\n", (int)programs[idx], (int)pid);
-      ProgramMapSection *pmt = getProgramMapSectionByPID(pid);
+      ProgramMapSection *pmt = getProgramMapTableByPID(pid);
       assert(pmt->isComplete());
-      pmt->dump(&std::cout);
+      printf("-- pid: 0x%04x, program=%d, PCR_PID=0x%04x\n", (int)pid, (int)programs[idx], pmt->PCR_PID());
+      if (loadOption_dump) pmt->dump(&std::cout);
       idx++;
    }
+}
+
+std::time_t TransportStream::getLatestTimestamp() const {
+   return *latestTimestamp;
+}
+
+ProgramAssociationSection *TransportStream::getLatestPAT() const {
+   return latestProgramAssociationTable;
 }

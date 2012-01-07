@@ -76,8 +76,16 @@ void BitStream::setBitDistance(const int *the_bit_distance) {
 }
 
 void BitStream::setBuffer(const ByteArray *data) {
+   assert(mydata != data);
+   if (mydata != NULL) delete mydata;
    mydata = data;
    //logger->debug("BitStream::setBuffer(): registered mydata=0x%x", mydata);
+}
+
+void BitStream::setBuffer(const BitStream &src, int off, int len) {
+   assert(mydata != src.mydata);
+   if (mydata != NULL) delete mydata;
+   mydata = src.mydata->subarray(off, len);
 }
 
 int BitStream::sizeofBufferBefore(int pos) const {
@@ -117,7 +125,7 @@ uint16 BitStream::bit_field16(int pos) const {
    assert(start <= end);
    assert(end - start <= 16);
    int result = 0;
-   result = mydata->at(start / 8) & start_mask[start % 8];
+   result = 0;
    for (int i = start / 8; i <= end / 8; i++) {
       result <<= 8;
       uint8 dt = mydata->at(i);
@@ -132,11 +140,38 @@ uint16 BitStream::bit_field16(int pos) const {
    return (uint16)(result >> (7 - (end % 8)));
 }
 
-int BitStream::append(const ByteArray &src) {
+uint32 BitStream::bit_field32(int pos) const {
+   int start = bit_distance[pos];
+   int end = bit_distance[pos + 1] - 1;
+   //std::cout << "DBG1: start=" << start << ", end=" << end << std::endl;
+   assert(start <= end);
+   assert(end - start <= 32);
+   long result = 0;
+   assert(sizeof(long) > sizeof(uint32));
+   result = 0;
+   for (int i = start / 8; i <= end / 8; i++) {
+      result <<= 8;
+      uint8 dt = mydata->at(i);
+      if (i == start / 8) {
+	 dt &= start_mask[start % 8];
+      }
+      if (i == end / 8) {
+	 dt &= end_mask[end % 8];
+      }
+      result |= dt;
+   }
+   return (uint32)(result >> (7 - (end % 8)));
+}
+
+int BitStream::append(const ByteArray &src, int off, int len) {
    ByteArrayBuffer *newdata = new ByteArrayBuffer(*mydata);
    if (newdata == NULL) return 0;
    const ByteArray *olddata = mydata;
-   newdata->append(src);
+   if (off == 0 && len == -1) {
+      newdata->append(src);
+   } else {
+      newdata->append(*(src.subarray(off, len)));
+   }
    mydata = newdata;
    delete olddata;
    //logger->debug("BitStream::append(): deleted mydata=0x%x", olddata);
