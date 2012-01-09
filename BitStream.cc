@@ -147,7 +147,7 @@ uint32 BitStream::bit_field32(int pos) const {
    assert(start <= end);
    assert(end - start <= 32);
    long result = 0;
-   assert(sizeof(long) > sizeof(uint32));
+   assert(sizeof(long) >= sizeof(uint32));
    result = 0;
    for (int i = start / 8; i <= end / 8; i++) {
       result <<= 8;

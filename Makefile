@@ -630,7 +630,14 @@ MJD.o: MJD.cc /usr/include/stdio.h /usr/include/sys/cdefs.h \
   /usr/include/sys/_types.h /usr/include/machine/_types.h \
   /usr/include/i386/_types.h \
   /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stdarg.h \
-  MJD.h TSTypes.h Logger.h
+  MJD.h /usr/include/c++/4.2.1/ctime /usr/include/c++/4.2.1/cstddef \
+  /usr/include/c++/4.2.1/bits/c++config.h \
+  /usr/include/c++/4.2.1/bits/os_defines.h /usr/include/unistd.h \
+  /usr/include/sys/unistd.h /usr/include/sys/select.h \
+  /usr/include/sys/appleapiopts.h /usr/include/sys/_structs.h \
+  /usr/include/sys/_select.h /usr/include/c++/4.2.1/bits/cpu_defines.h \
+  /usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/include/stddef.h \
+  /usr/include/time.h /usr/include/_structs.h TSTypes.h Logger.h
 PSI.o: PSI.cc /usr/include/assert.h /usr/include/sys/cdefs.h \
   /usr/include/sys/_symbol_aliasing.h \
   /usr/include/sys/_posix_availability.h /usr/include/stdlib.h \
@@ -1449,8 +1456,8 @@ TransportStream.o: TransportStream.cc /usr/include/stdio.h \
   /usr/include/c++/4.2.1/bits/stl_map.h \
   /usr/include/c++/4.2.1/bits/stl_multimap.h TSTypes.h Logger.h Table.h \
   BitStream.h ByteArrayBuffer.h ByteArray.h TransportPacket.h \
-  ProgramMapSection.h ProgramAssociationSection.h EventInformationTable.h \
-  MJD.h ServiceDescriptionTable.h
+  ProgramAssociationSection.h ProgramMapSection.h EventInformationTable.h \
+  MJD.h ServiceDescriptionTable.h TimeDateSection.h
 ts_dump.o: ts_dump.cc /usr/include/c++/4.2.1/iostream \
   /usr/include/c++/4.2.1/bits/c++config.h \
   /usr/include/c++/4.2.1/bits/os_defines.h /usr/include/unistd.h \
@@ -1557,5 +1564,5 @@ ts_dump.o: ts_dump.cc /usr/include/c++/4.2.1/iostream \
   /usr/include/c++/4.2.1/bits/stl_map.h \
   /usr/include/c++/4.2.1/bits/stl_multimap.h TSTypes.h Logger.h Table.h \
   BitStream.h ByteArrayBuffer.h ByteArray.h /usr/include/assert.h \
-  TransportPacket.h ProgramMapSection.h ProgramAssociationSection.h \
+  TransportPacket.h ProgramAssociationSection.h ProgramMapSection.h \
   EventInformationTable.h MJD.h StdLogger.h

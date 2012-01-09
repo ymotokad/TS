@@ -41,7 +41,7 @@ void ServiceDescriptionTable::dump(std::ostream *osp) const {
 	  table_id() == TableID_ServiceDescriptionTable_Other);
    printf("  -- Service Description Table ---\n");
    printf("  table_id=0x%02x\n", table_id());
-   //printf("  section_length=%d\n", section_length());
+   printf("  section_length=%d\n", section_length());
    printf("  transport_stream_id=0x%04x\n", transport_stream_id());
    int length = section_length()
       - (sizeofBufferBefore(pos_start_of_individual_services) - sizeofBufferBefore(pos_section_length + 1))

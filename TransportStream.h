@@ -29,11 +29,35 @@ typedef uint32 TSEvent;
 #define TSEvent_Update_EventInformationTable_Self_Current	((TSEvent)(1<<2))
 #define TSEvent_Update_Time					((TSEvent)(1<<3))
 
+
+/*
+ * BufferedInputStream
+ */
+class BufferedInputStream {
+public:
+   BufferedInputStream(std::istream *isp);
+   ByteArrayBuffer *read(int len);
+   void unread(const ByteArray &buff);
+   bool eof() const;
+private:
+   std::istream *isp;
+   ByteArrayBuffer *bufferUnread;
+   int idxUnread;
+};
+inline bool BufferedInputStream::eof() const {
+   if (bufferUnread) return false;
+   return isp->eof();
+}
+
+
+/*
+ * TransportStream
+ */
 class TransportStream {
  public:
    TransportStream();
    ~TransportStream();
-   int decode(std::istream *isp);
+   int decode(BufferedInputStream *isp);
    void setOption_dump(bool onoff = true);
    void setOption_showProgramInfo(bool onoff = true);
    void setOption_writeTransportStream(const char *filename, bool onoff = true);
@@ -61,7 +85,9 @@ class TransportStream {
    void clearTSEvent();
    std::time_t *latestTimestamp;
    ProgramAssociationSection *latestProgramAssociationTable;
+   Program2VersionMap latestEventInformationVersionByProgram;
  public:
+   TransportPacket *packet;
    bool isActiveTSEvent(TSEvent flag) const;
    std::time_t getLatestTimestamp() const;
    ProgramAssociationSection *getLatestPAT() const;
@@ -69,7 +95,6 @@ class TransportStream {
    uint16 getPIDByProgram(uint16 program) const;
    ProgramMapSection *getProgramMapTableByPID(uint16 pid) const;
    std::vector<uint16> programs_updated;  // A list of programs whose PMT was updated
-   Program2VersionMap latestEventInformationVersionByProgram;
    
    // Program Specific Information
  private:

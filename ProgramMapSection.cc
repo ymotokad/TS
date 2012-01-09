@@ -83,7 +83,7 @@ static const char*stream_type(int sid) {
 #define SHORTDUMP
 #ifdef SHORTDUMP
 void ProgramMapSection::dump(std::ostream *osp) const {
-   if (table_id() != 2) {
+   if (table_id() != TableID_TSProgramMapSection) {
       hexdump(2, osp);
       return;
    }
@@ -133,7 +133,7 @@ void ProgramMapSection::dump(std::ostream *osp) const {
 }
 #else
 void ProgramMapSection::dump(std::ostream *osp) const {
-   if (table_id() != 2) {
+   if (table_id() != TableID_TSProgramMapSection) {
       hexdump(2, osp);
       return;
    }
@@ -195,6 +195,39 @@ void ProgramMapSection::dump(std::ostream *osp) const {
    }
 }
 #endif
+
+void ProgramMapSection::for_all_streams(StreamCallback scp, void *dtp) const {
+   if (table_id() != TableID_TSProgramMapSection) {
+      return;
+   }
+   try {
+      int idx = sizeofBufferBefore(pos_START_PROGRAM_DATA);
+      int idxmax = idx + program_info_length();
+      while (idx < idxmax) {
+	 int desclen = byteAt(idx + 1);
+	 idx += 2 + desclen;
+      }
+      idxmax = sizeofBufferBefore(pos_section_length + 1) + section_length() - 4;
+      while (idx < idxmax) {
+	 int sttype = byteAt(idx);
+	 int elmpid = byteAt(idx + 1) << 8 | byteAt(idx + 2);
+	 elmpid &= 0x1fff;
+	 int eslen = byteAt(idx + 3) << 8 | byteAt(idx + 4);
+	 eslen &= 0x0fff;
+	 (*scp)(elmpid, stream_type(sttype), dtp);
+	 
+	 idx += 5;
+	 int es_tail = idx + eslen;
+	 while (idx < es_tail) {
+	    int ed_tag = byteAt(idx);
+	    int len = 2 + byteAt(idx + 1);
+	    idx += len;
+	 }
+      }
+   } catch (ByteArrayOverflowException e) {
+      logger->error("buffer underflow!!");
+   }
+}
 
 uint8 ProgramMapSection::version_number() const {
    return bit_field8(pos_version_number);

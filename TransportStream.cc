@@ -29,6 +29,7 @@ TransportStream::TransportStream() {
    latestTimestamp = NULL;
    latestProgramAssociationTable = NULL;
    tsEvent = 0;
+   packet = NULL;
 }
 
 
@@ -37,6 +38,7 @@ TransportStream::TransportStream() {
  */
 
 TransportStream::~TransportStream() {
+   if (packet != NULL) delete packet;
    clearProgramMapTables();
    if (latestTimestamp != NULL) {
       delete latestTimestamp;
@@ -48,32 +50,87 @@ TransportStream::~TransportStream() {
  * other methods
  */
 
-int TransportStream::decode(std::istream *isp) {
-   int numRead = 0;
-   TransportPacket packet(isp);
-   if (loadOption_dump) {
-      dumpPacket(packet);
+#define NUM_BYTES_LOOK_FORWARD		(SIZEOF_PACKET * 3)
+#define NUM_PACKETS_MATCH		4
+static ByteArrayBuffer *find_packet(BufferedInputStream *isp) {
+   ByteArrayBuffer *buff = isp->read(NUM_BYTES_LOOK_FORWARD + (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1)));
+   if (buff == NULL) return NULL;
+   for (int idx = 0; idx < NUM_BYTES_LOOK_FORWARD; idx++) {
+      if (buff->at(idx) == SYNC_BYTE_VALUE) {
+	 int n;
+	 for (n = 1; n < NUM_PACKETS_MATCH; n++) {
+	    if (buff->at(idx + SIZEOF_PACKET * n) != SYNC_BYTE_VALUE) break;
+	 }
+	 if (n == NUM_PACKETS_MATCH) {
+	    logger->warning("decode: found sync_byte (0x%x) by skipping %d bytes", SYNC_BYTE_VALUE, idx);
+	    // found
+	    ByteArray *pushback = buff->subarray(idx);
+	    isp->unread(*pushback);
+	    delete pushback;
+	    delete buff;
+	    buff = isp->read(SIZEOF_PACKET);
+	    return buff;
+	 }
+      }
    }
-   uint16 pid = packet.PID();
+
+   // couldn't find
+   ByteArray *pushback = buff->subarray(NUM_BYTES_LOOK_FORWARD);
+   isp->unread(*pushback);
+   delete pushback;
+   delete buff;
+   return NULL;
+}
+
+int TransportStream::decode(BufferedInputStream *isp) {
+   int numRead = 0;
+
+   if (packet != NULL) {
+      delete packet;
+      packet = NULL;
+   }
+   ByteArrayBuffer *buffer = isp->read(SIZEOF_PACKET);
+   if (isp->eof()) return 0;
+   packet = new TransportPacket(buffer);
+   if (packet->sync_byte() != SYNC_BYTE_VALUE) {
+      logger->warning("decode: wrong sync_byte (0x%x). skipping data...", packet->sync_byte());
+
+      // Seek for sync byte
+      ByteArray *pushback = buffer->subarray(1);
+      isp->unread(*pushback);
+      delete pushback;
+      delete packet;
+      packet = NULL;
+      buffer = find_packet(isp);
+      if (buffer == NULL) return 0;
+      packet = new TransportPacket(buffer);
+   }
+   
+   if (loadOption_dump) {
+      dumpPacket(*packet);
+   }
+   uint16 pid = packet->PID();
 
    // Load carry overs
    Section *prev = getIncompleteSection(pid);
    if (prev != NULL) {
-      int prevlen;
-      if (packet.payload_unit_start_indicator()) {
-	 int pointer_field = packet.getPayload()->at(0);
-	 prevlen = prev->append(packet.continuity_counter(), *(packet.getPayload()), 0, pointer_field);
-      } else {
-	 prevlen = prev->append(packet.continuity_counter(), *(packet.getPayload()), 0);
+      if (packet->has_payload() && packet->getPayload()->length() > 1) {
+	 int prevlen;
+	 if (packet->payload_unit_start_indicator()) {
+	    int pointer_field = packet->getPayload()->at(0);
+	    prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 0, pointer_field);
+	 } else {
+	    prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 0);
+	 }
+	 if (prevlen < 0) {
+	    logger->warning("TransportStream::decode(): cc (%d) is not subsequent to prev (%d)", packet->continuity_counter(), prev->last_continuity_counter());
+	 }
+	 if (prev->isComplete()) {
+	    loadTable(pid, *prev);
+	 }
+	 unsetIncompleteSection(pid);
+	 delete prev;
       }
-      if (prevlen < 0) {
-	 logger->warning("TransportStream::decode(): cc (%d) is not subsequent to prev (%d)", packet.continuity_counter(), prev->last_continuity_counter());
-      }
-      if (prev->isComplete()) {
-	 loadTable(pid, *prev);
-      }
-      unsetIncompleteSection(pid);
-      delete prev;
    }
 
    // Process packet
@@ -83,11 +140,11 @@ int TransportStream::decode(std::istream *isp) {
        pid == PID_EventInformationTable ||
        pid == PID_TimeDateSection ||
        isProgramMapTablePID(pid)) {
-      if (packet.payload_unit_start_indicator()) {
-	 int pointer_field = packet.getPayload()->at(0);
-	 Section *sec = new Section(packet.continuity_counter());
+      if (packet->payload_unit_start_indicator() && packet->has_payload() && packet->getPayload()->length() > 1) {
+	 int pointer_field = packet->getPayload()->at(0);
+	 Section *sec = new Section(packet->continuity_counter());
 	 if (sec == NULL) return -1;
-	 sec->setBuffer(packet.getPayload()->subarray(1 + pointer_field));
+	 sec->setBuffer(packet->getPayload()->subarray(1 + pointer_field));
 	 if (sec->isComplete()) {
 	    loadTable(pid, *sec);
 	    delete sec;
@@ -101,7 +158,7 @@ int TransportStream::decode(std::istream *isp) {
       // PES
    }
 
-   return packet.bufferLength();
+   return packet->bufferLength();
 }
 
 void TransportStream::loadTable(uint16 pid, const Section &section) {
@@ -229,6 +286,14 @@ void TransportStream::loadProgramAssociationTable(const Section &section) {
 	 setPIDByProgram(pno, pat.program_map_PID(i));
       }
    }
+   if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
+      int numPrograms = pat.numPrograms();
+      printf("*** Program Association Table ***\n");
+      for (int i = 0; i < numPrograms; i++) {
+	 uint16 pno = pat.program_number(i);
+	 printf("  program no=%d, PID=0x%04x\n", pno, pat.program_map_PID(i));
+      }
+   }
 }
 
 void TransportStream::loadProgramMapTable(const Section &section, uint16 pid) {
@@ -243,6 +308,12 @@ void TransportStream::loadProgramMapTable(const Section &section, uint16 pid) {
       setProgramMapSectionByPID(pid, new_pmt); // deletes old_pmt implicitly
       programs_updated.push_back(new_pmt->program_number());
       setTSEvent(TSEvent_Update_ProgramMapTable);
+      if (loadOption_showProgramInfo) {
+	 printf("*** Program Map Table ***\n");
+	 assert(pmt.isComplete());
+	 printf("  -- pid: 0x%04x, program=%d, PCR_PID=0x%04x\n", (int)pid, (int)pmt.program_number(), pmt.PCR_PID());
+	 pmt.dump(&std::cout);
+      }
    }
 }
 
@@ -267,19 +338,32 @@ void TransportStream::loadTimeDateSection(const Section &section) {
    } else {
       TimeOffsetSection tot;
       tot.setBuffer(section);
-      assert(tot.table_id() == TableID_TimeOffsetSection);
+      if (tot.table_id() != TableID_TimeOffsetSection) {
+	 logger->warning("TimeDateSection: inappropriate table_id: 0x%x", tot.table_id());
+	 return;
+      }
       *latestTimestamp = tot.convert();
       if (loadOption_dump) tot.dump(&std::cout);
    }
    setTSEvent(TSEvent_Update_Time);
+   if (loadOption_showProgramInfo) {
+      std::time_t t = getLatestTimestamp();
+      std::tm *tp = localtime(&t);
+      char buf[1024];
+      strftime(buf, sizeof buf, "%Y/%m/%d %H:%M:%S", tp);
+      printf("*** %s ***\n", buf);
+   }
 }
 
 void TransportStream::loadEventInformationTable(const Section &section) {
    EventInformationTable eit;
    eit.setBuffer(section);
 
-   assert(TableID_EventInformationTable_Self_Current <= eit.table_id() &&
-	  eit.table_id() <= TableID_EventInformationTable_max);
+   if (!(TableID_EventInformationTable_Self_Current <= eit.table_id() &&
+	 eit.table_id() <= TableID_EventInformationTable_max)) {
+      logger->warning("EventInformationTable: inappropriate table_id: 0x%x", eit.table_id());
+      return;
+   }
 
    if (eit.table_id() == TableID_EventInformationTable_Self_Current) {
       uint16 pno = eit.service_id();
@@ -295,7 +379,7 @@ void TransportStream::loadEventInformationTable(const Section &section) {
 	    latestEventInformationVersionByProgram[pno] = ver;
 	 }
       }
-      if (loadOption_dump /* || isActiveTSEvent(TSEvent_Update_EventInformationTable_Self_Current) */) {
+      if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Self_Current)) {
 	 eit.dump(&std::cout);
       }
    }
@@ -385,4 +469,52 @@ std::time_t TransportStream::getLatestTimestamp() const {
 
 ProgramAssociationSection *TransportStream::getLatestPAT() const {
    return latestProgramAssociationTable;
+}
+
+
+BufferedInputStream::BufferedInputStream(std::istream *p) {
+   isp = p;
+   idxUnread = 0;
+   bufferUnread = NULL;
+}
+
+ByteArrayBuffer *BufferedInputStream::read(int len) {
+   ByteArrayBuffer *buff = NULL;
+   int nRead = 0;
+   if (bufferUnread) {
+      assert(idxUnread < bufferUnread->length());
+      nRead = len;
+      if (nRead > (bufferUnread->length() - idxUnread)) {
+	 nRead = bufferUnread->length() - idxUnread;
+      }
+      buff = new ByteArrayBuffer(bufferUnread->part(idxUnread, nRead), nRead);
+      idxUnread += nRead;
+      if (idxUnread == bufferUnread->length()) {
+	 delete bufferUnread;
+	 bufferUnread = NULL;
+      }
+   }
+   if (nRead < len) {
+      uint8 room[len - nRead];
+      isp->read((char *)room, len - nRead);
+      if (isp->eof()) return buff;
+      if (!buff) {
+	 assert(nRead == 0);
+	 buff = new ByteArrayBuffer(room, len);
+      } else {
+	 buff->append(room, len - nRead);
+      }
+   } else {
+      assert(nRead == len);
+   }
+   return buff;
+}
+
+void BufferedInputStream::unread(const ByteArray &buff) {
+   if (bufferUnread) {
+      bufferUnread->append(buff);
+   } else {
+      bufferUnread = new ByteArrayBuffer(buff);
+      idxUnread = 0;
+   }
 }

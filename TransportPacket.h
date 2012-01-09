@@ -13,11 +13,15 @@ static const char *rcsid_TransportPacket = "@(#)$Id$";
 
 class AdaptationField;
 
+/*
+ * TransportPacket
+ */
 class TransportPacket : public BitStream {
  public:
    TransportPacket();
-   TransportPacket(std::istream *isp);
+   TransportPacket(ByteArrayBuffer *rawdata);
    virtual ~TransportPacket();
+   int write(std::ostream *osp) const;
    const AdaptationField getAdaptationField() const;
    const ByteArray *getPayload() const;
 
@@ -58,6 +62,10 @@ class TransportPacket : public BitStream {
 
 inline const ByteArray *TransportPacket::getPayload() const {
    return payload;
+}
+
+inline uint8 TransportPacket::sync_byte() const {
+   return bit_field8(TransportPacket_sync_byte);
 }
 
 inline bool TransportPacket::transport_error_indicator() const {

@@ -9,11 +9,14 @@ static const char *rcsid_ProgramMapSection = "@(#)$Id$";
 #include "Table.h"
 #include "ProgramAssociationSection.h"
 
+typedef void (*StreamCallback)(uint16, const char *, void *);
+
 class ProgramMapSection : public Section {
  public:
    ProgramMapSection();
    ProgramMapSection(uint8 continuous_counter);
    void dump(std::ostream *osp) const;
+   void for_all_streams(StreamCallback scp, void *) const;
 
    uint8 version_number() const;
    bool current_next_indicator() const;

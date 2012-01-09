@@ -39,6 +39,7 @@ Section::~Section() {
 
 bool Section::isComplete() const {
    assert(bufferAllocated());
+   if (bufferLength() < sizeofBufferBefore(pos_start_of_section)) return false;
    int expected_length = sizeofBufferBefore(pos_start_of_section) + section_length();
    return expected_length <= bufferLength();
 }

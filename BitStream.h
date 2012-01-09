@@ -27,6 +27,7 @@ class BitStream {
    void hexdump(int indent, std::ostream *osp, int offset = 0, int len = -1) const;
    
  protected:
+   const ByteArray *mydata;
    //const ByteArray *getBuffer() const; // use byteAt() instead
    
    // Bitfield methods. start starts eith 0. 
@@ -46,7 +47,6 @@ class BitStream {
  private:
    static const uint8 start_mask[];
    static const uint8 end_mask[];
-   const ByteArray *mydata;
 };
 
 

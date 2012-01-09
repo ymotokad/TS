@@ -13,6 +13,7 @@ static char rcsid[] = "@(#)$Id$";
 #include "TransportPacket.h"
 #include "AdaptationField.h"
 #include "ProgramMapSection.h"
+#include "ByteArrayBuffer.h"
 
 FIELDWIDTH_PREAMBLE(TransportPacket)
 FIELDWIDTH_CONTENT(TransportPacket_sync_byte,				8)
@@ -36,7 +37,7 @@ static int readin(std::istream *isp, ByteArrayBuffer *buffer, int length) {
    //std::cout << "...read " << std::dec << isp->gcount() << " bytes" << std::endl;
    return isp->gcount();
 }
-
+   
 
 /*
  * constructors 
@@ -47,14 +48,10 @@ void TransportPacket::initvars() {
    payload = NULL;
 }
 
-TransportPacket::TransportPacket(std::istream *isp) {
+TransportPacket::TransportPacket(ByteArrayBuffer *buffer) {
    initobj();
    initvars();
 
-   // Read into buffer
-   uint8 buff[SIZEOF_PACKET];
-   isp->read((char *)buff, SIZEOF_PACKET);
-   ByteArrayBuffer *buffer = new ByteArrayBuffer(buff, SIZEOF_PACKET);
    setBuffer(buffer);
 
    // Check if it has adaptation field and payload
@@ -85,4 +82,10 @@ TransportPacket::~TransportPacket() {
 /*
  * other methods
  */
+
+int TransportPacket::write(std::ostream *osp) const {
+   assert(mydata->length() == SIZEOF_PACKET);
+   osp->write((const char *)mydata->part(0, SIZEOF_PACKET), SIZEOF_PACKET);
+   return SIZEOF_PACKET;
+}
 
