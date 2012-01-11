@@ -170,7 +170,9 @@ int BitStream::append(const ByteArray &src, int off, int len) {
    if (off == 0 && len == -1) {
       newdata->append(src);
    } else {
-      newdata->append(*(src.subarray(off, len)));
+      ByteArray *tmp = src.subarray(off, len);
+      newdata->append(*tmp);
+      delete tmp;
    }
    mydata = newdata;
    delete olddata;
