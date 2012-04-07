@@ -27,10 +27,10 @@ static char TSTypes_rcsid[] = "@(#)$Id$";
 #define TableID_ConditionalAccessSection		0x01
 #define TableID_TSProgramMapSection			0x02
 #define TableID_TSDescriptionSection			0x03
-#define TableID_ServiceDescriptionTable_Self		0x42
+#define TableID_ServiceDescriptionTable_Actual		0x42
 #define TableID_ServiceDescriptionTable_Other		0x46
-#define TableID_EventInformationTable_Self_Current	0x4e
-#define TableID_EventInformationTable_Other_Current	0x4f
+#define TableID_EventInformationTable_Actual_Present	0x4e
+#define TableID_EventInformationTable_Other_Present	0x4f
 #define TableID_EventInformationTable_max		0x6f
 #define TableID_TimeDateSection				0x70
 #define TableID_TimeOffsetSection			0x73

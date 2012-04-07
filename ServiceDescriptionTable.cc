@@ -37,7 +37,7 @@ FIELDWIDTH_CONTENT(pos_start_of_individual_services,	0)
 FIELDWIDTH_POSTAMBLE(ServiceDescriptionTable, /**/)
 
 void ServiceDescriptionTable::dump(std::ostream *osp) const {
-   assert(table_id() == TableID_ServiceDescriptionTable_Self ||
+   assert(table_id() == TableID_ServiceDescriptionTable_Actual ||
 	  table_id() == TableID_ServiceDescriptionTable_Other);
    printf("  -- Service Description Table ---\n");
    printf("  table_id=0x%02x\n", table_id());
