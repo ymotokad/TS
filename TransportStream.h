@@ -26,7 +26,7 @@ typedef std::map<uint16, uint8, std::less<uint16> > Program2VersionMap;
 typedef uint32 TSEvent;
 #define TSEvent_Update_ProgramMapTable				((TSEvent)(1<<0))
 #define TSEvent_Update_ProgramAssociationTable			((TSEvent)(1<<1))
-#define TSEvent_Update_EventInformationTable_Self_Current	((TSEvent)(1<<2))
+#define TSEvent_Update_EventInformationTable_Actual_Present	((TSEvent)(1<<2))
 #define TSEvent_Update_Time					((TSEvent)(1<<3))
 
 
