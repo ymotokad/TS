@@ -222,6 +222,6 @@ int main(int argc, char *argv[]) {
       ofs.close();
    }
    ifs.close();
-   
+
    return 0;
 }
