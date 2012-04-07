@@ -320,7 +320,7 @@ void TransportStream::loadProgramMapTable(const Section &section, uint16 pid) {
 void TransportStream::loadServiceDescriptionTable(const Section &section) {
    ServiceDescriptionTable sdt;
    sdt.setBuffer(section);
-   assert(sdt.table_id() == TableID_ServiceDescriptionTable_Self ||
+   assert(sdt.table_id() == TableID_ServiceDescriptionTable_Actual ||
 	  sdt.table_id() == TableID_ServiceDescriptionTable_Other);
    if (loadOption_dump) sdt.dump(&std::cout);
 }
@@ -359,27 +359,27 @@ void TransportStream::loadEventInformationTable(const Section &section) {
    EventInformationTable eit;
    eit.setBuffer(section);
 
-   if (!(TableID_EventInformationTable_Self_Current <= eit.table_id() &&
+   if (!(TableID_EventInformationTable_Actual_Present <= eit.table_id() &&
 	 eit.table_id() <= TableID_EventInformationTable_max)) {
       logger->warning("EventInformationTable: inappropriate table_id: 0x%x", eit.table_id());
       return;
    }
 
-   if (eit.table_id() == TableID_EventInformationTable_Self_Current) {
+   if (eit.table_id() == TableID_EventInformationTable_Actual_Present) {
       uint16 pno = eit.service_id();
       uint8 ver = eit.version_number();
       Program2VersionMap::iterator itr = latestEventInformationVersionByProgram.find(pno);
       if (itr == latestEventInformationVersionByProgram.end()) {
-	 setTSEvent(TSEvent_Update_EventInformationTable_Self_Current);
+	 setTSEvent(TSEvent_Update_EventInformationTable_Actual_Present);
 	 latestEventInformationVersionByProgram[pno] = ver;
       } else {
 	 uint8 latest_version = itr->second;
 	 if (latest_version != ver) {
-	    setTSEvent(TSEvent_Update_EventInformationTable_Self_Current);
+	    setTSEvent(TSEvent_Update_EventInformationTable_Actual_Present);
 	    latestEventInformationVersionByProgram[pno] = ver;
 	 }
       }
-      if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Self_Current)) {
+      if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
 	 eit.dump(&std::cout);
       }
    }
