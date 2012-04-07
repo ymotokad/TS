@@ -111,6 +111,8 @@ int TransportStream::decode(BufferedInputStream *isp) {
    }
    uint16 pid = packet->PID();
 
+   clearTSEvent();
+   
    // Load carry overs
    Section *prev = getIncompleteSection(pid);
    if (prev != NULL) {
@@ -134,7 +136,6 @@ int TransportStream::decode(BufferedInputStream *isp) {
    }
 
    // Process packet
-   clearTSEvent();
    if (pid == PID_ProgramAssociationTable ||
        pid == PID_ServiceDescriptionTable ||
        pid == PID_EventInformationTable ||
