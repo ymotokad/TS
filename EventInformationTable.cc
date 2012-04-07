@@ -43,9 +43,9 @@ EventInformationTable::EventInformationTable(uint8 continuous_counter) : Section
 }
 
 void EventInformationTable::dump(std::ostream *osp) const {
-   assert(TableID_EventInformationTable_Self_Current <= table_id() &&
+   assert(TableID_EventInformationTable_Actual_Present <= table_id() &&
 	  table_id() <= TableID_EventInformationTable_max);
-   if (table_id() != TableID_EventInformationTable_Self_Current) return; // For now
+   if (table_id() != TableID_EventInformationTable_Actual_Present) return; // For now
    printf("*** Event Information Table ***\n");
    printf("  table_id=0x%02x\n", table_id());
    printf("  section_length=%d\n", section_length());
