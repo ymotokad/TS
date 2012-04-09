@@ -19,8 +19,8 @@ static void usage(const char *argv0) {
    std::cerr << "   -v             print verbose message" << std::endl;
    std::cerr << "   -s             show program information" << std::endl;
    std::cerr << "   -d             print debug information" << std::endl;
-   std::cerr << "   -p program_id  output only specified program" << std::endl;
-   std::cerr << "   -e             output EIT/SDT" << std::endl;
+   std::cerr << "   -p program_id  add specified program to output stream" << std::endl;
+   std::cerr << "   -e             add EIT/SDT to output stream" << std::endl;
 }
 
 /*
