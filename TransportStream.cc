@@ -55,7 +55,11 @@ TransportStream::~TransportStream() {
 static ByteArrayBuffer *find_packet(BufferedInputStream *isp) {
    ByteArrayBuffer *buff = isp->read(NUM_BYTES_LOOK_FORWARD + (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1)));
    if (buff == NULL) return NULL;
-   for (int idx = 0; idx < NUM_BYTES_LOOK_FORWARD; idx++) {
+   if (buff->length() != NUM_BYTES_LOOK_FORWARD + (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1))) {
+      logger->warning("find_packet: Tried to read %d bytes, but actually read %d bytes", NUM_BYTES_LOOK_FORWARD + (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1)), buff->length());
+   }
+   int idx_limit = buff->length() - (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1));
+   for (int idx = 0; idx < idx_limit; idx++) {
       if (buff->at(idx) == SYNC_BYTE_VALUE) {
 	 int n;
 	 for (n = 1; n < NUM_PACKETS_MATCH; n++) {
@@ -69,12 +73,14 @@ static ByteArrayBuffer *find_packet(BufferedInputStream *isp) {
 	    delete pushback;
 	    delete buff;
 	    buff = isp->read(SIZEOF_PACKET);
+	    assert(buff != NULL);
 	    return buff;
 	 }
       }
    }
 
    // couldn't find
+   logger->warning("find_packet: couldn't find sync_byte after peeking %d bytes.", idx_limit);
    ByteArray *pushback = buff->subarray(NUM_BYTES_LOOK_FORWARD);
    isp->unread(*pushback);
    delete pushback;
@@ -497,13 +503,22 @@ ByteArrayBuffer *BufferedInputStream::read(int len) {
    }
    if (nRead < len) {
       uint8 room[len - nRead];
-      isp->read((char *)room, len - nRead);
-      if (isp->eof()) return buff;
-      if (!buff) {
-	 assert(nRead == 0);
-	 buff = new ByteArrayBuffer(room, len);
-      } else {
-	 buff->append(room, len - nRead);
+      while (nRead < len) {
+	 isp->read((char *)room, len - nRead);
+	 int n = isp->gcount();
+	 if (n <= 0) {
+	    //logger->warning("BufferedInputStream::read(%d): gcount() returns 0. rdstate=0x%08x (fail:0x%x, eof:0x%x, bad:0x%x)", len, isp->rdstate(), isp->failbit, isp->eofbit, isp->badbit);
+	    assert(isp->eof() || isp->fail());
+	    return buff;
+	 }
+	 if (!buff) {
+	    assert(nRead == 0);
+	    buff = new ByteArrayBuffer(room, n);
+	 } else {
+	    buff->append(room, n);
+	 }
+	 //if (nRead + n < len) logger->warning("BufferedInputStream::read(%d): Tried to read %d bytes, but read only %d bytes this time, and %d bytes so far.", len, len - nRead, n, nRead + n);
+	 nRead += n;
       }
    } else {
       assert(nRead == len);
