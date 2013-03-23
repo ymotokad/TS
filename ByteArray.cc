@@ -31,7 +31,7 @@ ByteArray::ByteArray(const uint8 *src, int length) {
 ByteArray::ByteArray(const ByteArray& src, int off, int length) {
    src.room->incr_refcnt();
    room = src.room;
-   if (length = -1) {
+   if (length == -1) {
       tail = src.tail;
    } else {
       assert(src.length() >= off + length);
