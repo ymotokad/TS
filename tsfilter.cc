@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include "TransportStream.h"
 #include "StdLogger.h"
+#include "Spool.h"
 
 static char rcsid[] = "@(#)$Id$";
 
@@ -16,11 +17,12 @@ Logger *logger;
 static void usage(const char *argv0) {
    std::cerr << "usage: " << argv0 << " [options]" << " -i input.ts [-o output.ts]" << std::endl;
    std::cerr << " options:" << std::endl;
-   std::cerr << "   -v             print verbose message" << std::endl;
-   std::cerr << "   -s             show program information" << std::endl;
-   std::cerr << "   -d             print debug information" << std::endl;
-   std::cerr << "   -p program_id  add specified program to output stream" << std::endl;
-   std::cerr << "   -e             add EIT/SDT to output stream" << std::endl;
+   std::cerr << "   -v            print verbose message" << std::endl;
+   std::cerr << "   -s            show program information" << std::endl;
+   std::cerr << "   -d            print debug information" << std::endl;
+   std::cerr << "   -p program_id add specified program to output stream" << std::endl;
+   std::cerr << "   -e            add EIT/SDT to output stream" << std::endl;
+   std::cerr << "   -k N          probe leading N packets and skip until begining of the program, which is judged by Program Map Table change" << std::endl;
 }
 
 /*
@@ -65,6 +67,7 @@ void RegisterPIDFromPMT(uint16 pid, const char *tagstr, void *dtp) {
    pids->activate(pid);
 }
 
+typedef Spool<ByteArray> ByteArraySpool;
 
 /*
  * main
@@ -79,10 +82,12 @@ int main(int argc, char *argv[]) {
    char *opt_i = NULL;
    char *opt_o = NULL;
    int program_id = -1;
+   int probe_size = 0;
+   ByteArraySpool *spool = NULL;
 
    // Parse command line options.
    int option_char;
-   while ((option_char = getopt(argc, argv, "vdsi:o:p:e")) != -1) {
+   while ((option_char = getopt(argc, argv, "vdsi:o:p:ek:")) != -1) {
       switch (option_char) {
       case 'v':
 	 opt_v = true;
@@ -105,6 +110,9 @@ int main(int argc, char *argv[]) {
 	 break;
       case 'p':
 	 program_id = atoi(optarg);
+	 break;
+      case 'k':
+	 probe_size = atoi(optarg);
 	 break;
       case 'h':
       default:
@@ -140,6 +148,9 @@ int main(int argc, char *argv[]) {
       if (!ofs) {
 	 std::cerr << argv0 << ": error openning file " << opt_o << std::endl;
 	 return 1;
+      }
+      if (probe_size > 0) {
+	 spool = new ByteArraySpool(probe_size);
       }
    }
 
@@ -214,7 +225,28 @@ int main(int argc, char *argv[]) {
 	     * Write output stream
 	     */
 	    if (writePacket) {
-	       ts.packet->write(&ofs);
+	       if (spool) {
+		  if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
+		     spool->flush();
+		  }
+	       
+		  if (spool->length() < probe_size) {
+		     spool->append(*(ts.packet->getRawdata()));
+		  } else {
+		     // spool is full. write all the data in the spool and stop spooling
+		     assert(writePacket);
+		     for (int i = 0; i < probe_size; i++) {
+			const ByteArray *bp = spool->dataAt(i);
+			ofs.write((const char *)bp->part(0, SIZEOF_PACKET), SIZEOF_PACKET);
+		     }
+		     delete spool;
+		     spool = NULL;
+		  
+		     ofs.write((const char *)ts.packet->getRawdata()->part(0, SIZEOF_PACKET), SIZEOF_PACKET);
+		  }
+	       } else {
+		  ofs.write((const char *)ts.packet->getRawdata()->part(0, SIZEOF_PACKET), SIZEOF_PACKET);
+	       }
 	    }
 	 }
 
@@ -234,6 +266,9 @@ int main(int argc, char *argv[]) {
       ofs.close();
    }
    ifs.close();
+   if (spool != NULL) {
+      delete spool;
+   }
 
    return 0;
 }
