@@ -72,12 +72,6 @@ ByteArray::subarray(int idx, int len) const {
    if (idx >= tail) {
       return new ByteArray(NULL, 0);
    }
-   int n = tail - idx;
-   if (len == -1) {
-      len = n;
-   } else {
-      if (len > n) len = n;
-   }
    return new ByteArray(*this, idx, len);
 }
 
