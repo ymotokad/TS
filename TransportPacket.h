@@ -22,6 +22,7 @@ class TransportPacket : public BitStream {
    TransportPacket(ByteArrayBuffer *rawdata);
    virtual ~TransportPacket();
    int write(std::ostream *osp) const;
+   const ByteArray *getRawdata() const;
    const AdaptationField getAdaptationField() const;
    const ByteArray *getPayload() const;
 

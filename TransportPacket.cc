@@ -89,3 +89,7 @@ int TransportPacket::write(std::ostream *osp) const {
    return SIZEOF_PACKET;
 }
 
+const ByteArray *TransportPacket::getRawdata() const {
+   assert(mydata->length() == SIZEOF_PACKET);
+   return mydata;
+}
