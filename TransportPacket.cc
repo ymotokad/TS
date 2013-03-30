@@ -58,10 +58,14 @@ TransportPacket::TransportPacket(ByteArrayBuffer *buffer) {
    int offset = sizeofBufferBefore(TransportPacket_StartOfData);
    if (has_adaptation_field()) {
       int len = 1 + byteAt(offset);
-      AdaptationField *af = new AdaptationField();
-      af->setBuffer(buffer->subarray(offset, len));
-      adaptationField = af;
-      offset += len;
+      if (buffer->length() >= offset + len) {
+	 AdaptationField *af = new AdaptationField();
+	 af->setBuffer(buffer->subarray(offset, len));
+	 adaptationField = af;
+	 offset += len;
+      } else {
+	 logger->warning("TrasnportPacket: Found an adaptation field, but its size %d in the header is larger than actual size %d. Ignoring the adaptation field.", len, buffer->length() - offset);
+      }
    }
    if (has_payload()) {
       payload = buffer->subarray(offset);
