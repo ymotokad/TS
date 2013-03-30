@@ -30,7 +30,7 @@ public:
 
    uint8 at(int idx) const; // ByteArrayOverflowException
    ByteArray *subarray(int idx, int len = -1) const;
-   const uint8 *part(int idx, int len) const; // ByteArrayOverflowException
+   const uint8 *part(int idx = 0, int len = -1) const; // ByteArrayOverflowException
 
    bool isEmpty() const;
    int length() const;

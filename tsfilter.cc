@@ -236,16 +236,21 @@ int main(int argc, char *argv[]) {
 		     // spool is full. write all the data in the spool and stop spooling
 		     assert(writePacket);
 		     for (int i = 0; i < probe_size; i++) {
-			const ByteArray *bp = spool->dataAt(i);
-			ofs.write((const char *)bp->part(0, SIZEOF_PACKET), SIZEOF_PACKET);
+			const ByteArray *rawdata = spool->dataAt(i);
+			assert(rawdata->length() == SIZEOF_PACKET);
+			ofs.write((const char *)rawdata->part(), rawdata->length());
 		     }
 		     delete spool;
 		     spool = NULL;
 		  
-		     ofs.write((const char *)ts.packet->getRawdata()->part(0, SIZEOF_PACKET), SIZEOF_PACKET);
+		     const ByteArray *rawdata = ts.packet->getRawdata();
+		     assert(rawdata->length() == SIZEOF_PACKET);
+		     ofs.write((const char *)rawdata->part(), rawdata->length());
 		  }
 	       } else {
-		  ofs.write((const char *)ts.packet->getRawdata()->part(0, SIZEOF_PACKET), SIZEOF_PACKET);
+		  const ByteArray *rawdata = ts.packet->getRawdata();
+		  assert(rawdata->length() == SIZEOF_PACKET);
+		  ofs.write((const char *)rawdata->part(), rawdata->length());
 	       }
 	    }
 	 }
