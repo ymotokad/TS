@@ -21,6 +21,8 @@ typedef std::map<uint16, Section*, std::less<uint16> > Pid2SectionMap;
 
 typedef std::map<uint16, uint8, std::less<uint16> > Program2VersionMap;
 
+#define TS_CLOCK_FREQUENCY	27000000 // 27 MHz
+
 
 // Trasnport Stream Event Handling
 typedef uint32 TSEvent;
