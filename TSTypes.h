@@ -10,6 +10,7 @@
 #ifdef IMPLEMENTING_TSTYPES
 static char TSTypes_rcsid[] = "@(#)$Id$";
 #endif
+#include <stdint.h>
 #include "Logger.h"
 
 
@@ -36,10 +37,18 @@ static char TSTypes_rcsid[] = "@(#)$Id$";
 #define TableID_TimeOffsetSection			0x73
 
 
+#define TS_CLOCK_FREQUENCY	27000000 // 27 MHz
+#define TS_CLOCK_EXTENSION_MAX	299 // extension field takes 0 to 299
+#define TS_CLOCK_BASE_FREQUENCY	(TS_CLOCK_FREQUENCY / (TS_CLOCK_EXTENSION_MAX + 1)) // 90 KHz
+#define TS_CLOCK_BASE_BITLEN	33
+
+
+
 extern Logger *logger;
 
-typedef unsigned char uint8;	// 8bit unsigned integer
-typedef unsigned short uint16;	// 16bit unsigned integer
-typedef unsigned int uint32;	// 32bit unsigned integer
+typedef uint8_t uint8;		// 8bit unsigned integer
+typedef uint16_t uint16;	// 16bit unsigned integer
+typedef uint32_t uint32;	// 32bit unsigned integer
+typedef uint64_t uint64;	// 64bit unsigned integer
 
 #endif /* TSTYPES_H */

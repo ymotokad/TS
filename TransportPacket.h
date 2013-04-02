@@ -23,7 +23,7 @@ class TransportPacket : public BitStream {
    virtual ~TransportPacket();
    int write(std::ostream *osp) const;
    const ByteArray *getRawdata() const;
-   const AdaptationField getAdaptationField() const;
+   const AdaptationField *getAdaptationField() const;
    const ByteArray *getPayload() const;
 
    uint8 sync_byte() const;
@@ -63,6 +63,10 @@ class TransportPacket : public BitStream {
 
 inline const ByteArray *TransportPacket::getPayload() const {
    return payload;
+}
+
+inline const AdaptationField *TransportPacket::getAdaptationField() const {
+   return adaptationField;
 }
 
 inline uint8 TransportPacket::sync_byte() const {

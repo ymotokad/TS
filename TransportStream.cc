@@ -16,6 +16,7 @@ static char rcsid[] = "@(#)$Id$";
 #include "ServiceDescriptionTable.h"
 #include "EventInformationTable.h"
 #include "TimeDateSection.h"
+#include "AdaptationField.h"
    
 
 /*
@@ -26,10 +27,10 @@ TransportStream::TransportStream() {
    loadOption_dump = false;
    loadOption_showProgramInfo = false;
    loadOption_writeTransportStream = false;
-   latestTimestamp = NULL;
    latestProgramAssociationTable = NULL;
    tsEvent = 0;
    packet = NULL;
+   packet_counter = 0;
 }
 
 
@@ -40,9 +41,6 @@ TransportStream::TransportStream() {
 TransportStream::~TransportStream() {
    if (packet != NULL) delete packet;
    clearProgramMapTables();
-   if (latestTimestamp != NULL) {
-      delete latestTimestamp;
-   }
 }
 
 
@@ -89,12 +87,12 @@ static ByteArrayBuffer *find_packet(BufferedInputStream *isp) {
 }
 
 int TransportStream::decode(BufferedInputStream *isp) {
-   int numRead = 0;
-
    if (packet != NULL) {
       delete packet;
       packet = NULL;
    }
+   packet_counter++;
+   
    ByteArrayBuffer *buffer = isp->read(SIZEOF_PACKET);
    if (isp->eof()) return 0;
    packet = new TransportPacket(buffer);
@@ -111,14 +109,26 @@ int TransportStream::decode(BufferedInputStream *isp) {
       if (buffer == NULL) return 0;
       packet = new TransportPacket(buffer);
    }
-   
+      
    if (loadOption_dump) {
       dumpPacket(*packet);
    }
    uint16 pid = packet->PID();
 
    clearTSEvent();
-   
+
+   // System Clock
+   if (packet->has_adaptation_field()) {
+      const AdaptationField *ap = packet->getAdaptationField();
+      if (ap->hasCompletePCR()) {
+	 sysclock.sync(pid, ap->getBase(), ap->getExt());
+      } else {
+	 sysclock.tick();
+      }
+   } else {
+      sysclock.tick();
+   }
+
    // Load carry overs
    Section *prev = getIncompleteSection(pid);
    if (prev != NULL) {
@@ -187,7 +197,7 @@ void TransportStream::loadTable(uint16 pid, const Section &section) {
    }
 }
 
-void TransportStream::dumpPacket(const TransportPacket &packet) const {
+void TransportStream::dumpPacket(const TransportPacket &packet) {
    std::ostream *osp = &std::cout;
    *osp << "-- Packet";
    const char *pid;
@@ -224,7 +234,7 @@ void TransportStream::dumpPacket(const TransportPacket &packet) const {
    }
 
    if (packet.has_adaptation_field()) {
-      //adaptationField->dump(osp);
+      packet.getAdaptationField()->dump(osp);
    }
 
    if (packet.has_payload()) {
@@ -295,7 +305,8 @@ void TransportStream::loadProgramAssociationTable(const Section &section) {
    }
    if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
       int numPrograms = pat.numPrograms();
-      printf("*** Program Association Table ***\n");
+      char buf[20];
+      printf("*** [%s] Program Association Table ***\n", SystemClock_toString(buf, sysclock.getRelativeTime()));
       for (int i = 0; i < numPrograms; i++) {
 	 uint16 pno = pat.program_number(i);
 	 printf("  program no=%d, PID=0x%04x\n", pno, pat.program_map_PID(i));
@@ -316,7 +327,8 @@ void TransportStream::loadProgramMapTable(const Section &section, uint16 pid) {
       programs_updated.push_back(new_pmt->program_number());
       setTSEvent(TSEvent_Update_ProgramMapTable);
       if (loadOption_showProgramInfo) {
-	 printf("*** Program Map Table ***\n");
+	 char buf[20];
+	 printf("*** [%s] Program Map Table ***\n", SystemClock_toString(buf, sysclock.getRelativeTime()));
 	 assert(pmt.isComplete());
 	 printf("  -- pid: 0x%04x, program=%d, PCR_PID=0x%04x\n", (int)pid, (int)pmt.program_number(), pmt.PCR_PID());
 	 pmt.dump(&std::cout);
@@ -333,14 +345,11 @@ void TransportStream::loadServiceDescriptionTable(const Section &section) {
 }
 
 void TransportStream::loadTimeDateSection(const Section &section) {
-   if (latestTimestamp == NULL) {
-      latestTimestamp = new std::time_t;
-   }
    TimeDateSection tdt;
    tdt.setBuffer(section);
    int table_id = tdt.table_id();
    if (table_id == TableID_TimeDateSection) {
-      *latestTimestamp = tdt.convert();
+      sysclock.setAbsoluteTime(tdt.convert());
       if (loadOption_dump) tdt.dump(&std::cout);
    } else {
       TimeOffsetSection tot;
@@ -349,16 +358,17 @@ void TransportStream::loadTimeDateSection(const Section &section) {
 	 logger->warning("TimeDateSection: inappropriate table_id: 0x%x", tot.table_id());
 	 return;
       }
-      *latestTimestamp = tot.convert();
+      sysclock.setAbsoluteTime(tot.convert());
       if (loadOption_dump) tot.dump(&std::cout);
    }
    setTSEvent(TSEvent_Update_Time);
    if (loadOption_showProgramInfo) {
-      std::time_t t = getLatestTimestamp();
+      char buf1[20];
+      std::time_t t = sysclock.getAbsoluteTime();
       std::tm *tp = localtime(&t);
-      char buf[1024];
-      strftime(buf, sizeof buf, "%Y/%m/%d %H:%M:%S", tp);
-      printf("*** %s ***\n", buf);
+      char buf2[1024];
+      strftime(buf2, sizeof buf2, "%Y/%m/%d %H:%M:%S", tp);
+      printf("*** [%s] %s ***\n", SystemClock_toString(buf1, sysclock.getRelativeTime()), buf2);
    }
 }
 
@@ -387,6 +397,8 @@ void TransportStream::loadEventInformationTable(const Section &section) {
 	 }
       }
       if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
+	 char buf[20];
+	 printf("*** [%s] ", SystemClock_toString(buf, sysclock.getRelativeTime()));
 	 eit.dump(&std::cout);
       }
    }
@@ -470,8 +482,8 @@ void TransportStream::showPSI() const {
    }
 }
 
-std::time_t TransportStream::getLatestTimestamp() const {
-   return *latestTimestamp;
+std::time_t TransportStream::getLatestTimestamp() {
+   return sysclock.getAbsoluteTime();
 }
 
 ProgramAssociationSection *TransportStream::getLatestPAT() const {

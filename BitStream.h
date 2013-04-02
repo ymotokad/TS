@@ -35,6 +35,7 @@ class BitStream {
    uint8 bit_field8(int position) const;
    uint16 bit_field16(int position) const;
    uint32 bit_field32(int position) const;
+   uint64 bit_field64(int position) const;
 
    static void hexdump(int indent, std::ostream *osp, const ByteArray &buff, int offset = 0, int len = -1);
 

@@ -1,5 +1,5 @@
-CXXFLAGS=-g -DNDEBUG
-CXXFLAGS=-g -O2
+CXXFLAGS=-O2 -DNDEBUG
+#CXXFLAGS=-g
 LIBS=
 
 OBJS=StdLogger.o \
@@ -40,18 +40,21 @@ AdaptationField.o: AdaptationField.cc /usr/include/assert.h \
  /usr/include/features.h /usr/include/bits/predefs.h \
  /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h \
  /usr/include/gnu/stubs.h /usr/include/gnu/stubs-32.h \
- /usr/include/c++/4.4/iostream \
+ /usr/include/stdio.h /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stddef.h \
+ /usr/include/bits/types.h /usr/include/bits/typesizes.h \
+ /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
+ /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
+ /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
+ /usr/include/bits/stdio.h /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
  /usr/include/c++/4.4/ostream /usr/include/c++/4.4/ios \
  /usr/include/c++/4.4/iosfwd /usr/include/c++/4.4/bits/stringfwd.h \
  /usr/include/c++/4.4/bits/postypes.h /usr/include/c++/4.4/cwchar \
- /usr/include/c++/4.4/cstddef \
- /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stddef.h /usr/include/wchar.h \
- /usr/include/stdio.h /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
- /usr/include/bits/wchar.h /usr/include/xlocale.h \
- /usr/include/c++/4.4/exception /usr/include/c++/4.4/bits/char_traits.h \
+ /usr/include/c++/4.4/cstddef /usr/include/bits/wchar.h \
+ /usr/include/xlocale.h /usr/include/c++/4.4/exception \
+ /usr/include/c++/4.4/bits/char_traits.h \
  /usr/include/c++/4.4/bits/stl_algobase.h \
  /usr/include/c++/4.4/bits/functexcept.h \
  /usr/include/c++/4.4/exception_defines.h \
@@ -67,10 +70,8 @@ AdaptationField.o: AdaptationField.cc /usr/include/assert.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++locale.h \
  /usr/include/c++/4.4/clocale /usr/include/locale.h \
  /usr/include/bits/locale.h /usr/include/c++/4.4/cctype \
- /usr/include/ctype.h /usr/include/bits/types.h \
- /usr/include/bits/typesizes.h /usr/include/endian.h \
- /usr/include/bits/endian.h /usr/include/bits/byteswap.h \
- /usr/include/c++/4.4/bits/ios_base.h \
+ /usr/include/ctype.h /usr/include/endian.h /usr/include/bits/endian.h \
+ /usr/include/bits/byteswap.h /usr/include/c++/4.4/bits/ios_base.h \
  /usr/include/c++/4.4/ext/atomicity.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/gthr.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/gthr-default.h \
@@ -104,7 +105,8 @@ AdaptationField.o: AdaptationField.cc /usr/include/assert.h \
  /usr/include/c++/4.4/bits/basic_ios.tcc \
  /usr/include/c++/4.4/bits/ostream.tcc /usr/include/c++/4.4/istream \
  /usr/include/c++/4.4/bits/istream.tcc AdaptationField.h BitStream.h \
- TSTypes.h Logger.h ByteArrayBuffer.h ByteArray.h
+ TSTypes.h /usr/include/stdint.h Logger.h ByteArrayBuffer.h ByteArray.h \
+ SystemClock.h /usr/include/c++/4.4/ctime
 BitStream.o: BitStream.cc /usr/include/assert.h /usr/include/features.h \
  /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
  /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
@@ -171,8 +173,8 @@ BitStream.o: BitStream.cc /usr/include/assert.h /usr/include/features.h \
  /usr/include/c++/4.4/bits/locale_facets.tcc \
  /usr/include/c++/4.4/bits/basic_ios.tcc \
  /usr/include/c++/4.4/bits/ostream.tcc /usr/include/c++/4.4/istream \
- /usr/include/c++/4.4/bits/istream.tcc TSTypes.h Logger.h \
- ByteArrayBuffer.h ByteArray.h
+ /usr/include/c++/4.4/bits/istream.tcc TSTypes.h /usr/include/stdint.h \
+ Logger.h ByteArrayBuffer.h ByteArray.h
 ByteArray.o: ByteArray.cc /usr/include/c++/4.4/string \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
@@ -240,7 +242,7 @@ ByteArray.o: ByteArray.cc /usr/include/c++/4.4/string \
  /usr/include/c++/4.4/bits/basic_ios.tcc \
  /usr/include/c++/4.4/bits/ostream.tcc /usr/include/c++/4.4/istream \
  /usr/include/c++/4.4/bits/istream.tcc /usr/include/assert.h TSTypes.h \
- Logger.h ByteArrayBuffer.h
+ /usr/include/stdint.h Logger.h ByteArrayBuffer.h
 ByteArrayBuffer.o: ByteArrayBuffer.cc /usr/include/string.h \
  /usr/include/features.h /usr/include/bits/predefs.h \
  /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h \
@@ -310,7 +312,7 @@ ByteArrayBuffer.o: ByteArrayBuffer.cc /usr/include/string.h \
  /usr/include/c++/4.4/bits/basic_ios.tcc \
  /usr/include/c++/4.4/bits/ostream.tcc /usr/include/c++/4.4/istream \
  /usr/include/c++/4.4/bits/istream.tcc /usr/include/assert.h TSTypes.h \
- Logger.h
+ /usr/include/stdint.h Logger.h
 Descriptors.o: Descriptors.cc /usr/include/assert.h \
  /usr/include/features.h /usr/include/bits/predefs.h \
  /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h \
@@ -382,7 +384,7 @@ Descriptors.o: Descriptors.cc /usr/include/assert.h \
  /usr/include/c++/4.4/bits/istream.tcc /usr/include/c++/4.4/map \
  /usr/include/c++/4.4/bits/stl_tree.h /usr/include/c++/4.4/bits/stl_map.h \
  /usr/include/c++/4.4/bits/stl_multimap.h Descriptors.h TSTypes.h \
- Logger.h BitStream.h ByteArrayBuffer.h ByteArray.h
+ /usr/include/stdint.h Logger.h BitStream.h ByteArrayBuffer.h ByteArray.h
 EventInformationTable.o: EventInformationTable.cc /usr/include/assert.h \
  /usr/include/features.h /usr/include/bits/predefs.h \
  /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h \
@@ -454,9 +456,9 @@ EventInformationTable.o: EventInformationTable.cc /usr/include/assert.h \
  /usr/include/c++/4.4/bits/istream.tcc Descriptors.h \
  /usr/include/c++/4.4/map /usr/include/c++/4.4/bits/stl_tree.h \
  /usr/include/c++/4.4/bits/stl_map.h \
- /usr/include/c++/4.4/bits/stl_multimap.h TSTypes.h Logger.h BitStream.h \
- ByteArrayBuffer.h ByteArray.h EventInformationTable.h Table.h MJD.h \
- /usr/include/c++/4.4/ctime
+ /usr/include/c++/4.4/bits/stl_multimap.h TSTypes.h /usr/include/stdint.h \
+ Logger.h BitStream.h ByteArrayBuffer.h ByteArray.h \
+ EventInformationTable.h Table.h MJD.h /usr/include/c++/4.4/ctime
 MJD.o: MJD.cc /usr/include/stdio.h /usr/include/features.h \
  /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
  /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
@@ -472,7 +474,7 @@ MJD.o: MJD.cc /usr/include/stdio.h /usr/include/features.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
  /usr/include/time.h /usr/include/bits/time.h /usr/include/xlocale.h \
- TSTypes.h Logger.h
+ TSTypes.h /usr/include/stdint.h /usr/include/bits/wchar.h Logger.h
 PSI.o: PSI.cc /usr/include/assert.h /usr/include/features.h \
  /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
  /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
@@ -540,7 +542,7 @@ PSI.o: PSI.cc /usr/include/assert.h /usr/include/features.h \
  /usr/include/c++/4.4/bits/basic_ios.tcc \
  /usr/include/c++/4.4/bits/ostream.tcc /usr/include/c++/4.4/istream \
  /usr/include/c++/4.4/bits/istream.tcc PSI.h BitStream.h TSTypes.h \
- Logger.h ByteArrayBuffer.h ByteArray.h
+ /usr/include/stdint.h Logger.h ByteArrayBuffer.h ByteArray.h
 ProgramAssociationSection.o: ProgramAssociationSection.cc \
  /usr/include/assert.h /usr/include/features.h \
  /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
@@ -609,7 +611,8 @@ ProgramAssociationSection.o: ProgramAssociationSection.cc \
  /usr/include/c++/4.4/bits/basic_ios.tcc \
  /usr/include/c++/4.4/bits/ostream.tcc /usr/include/c++/4.4/istream \
  /usr/include/c++/4.4/bits/istream.tcc ProgramAssociationSection.h \
- Table.h TSTypes.h Logger.h BitStream.h ByteArrayBuffer.h ByteArray.h
+ Table.h TSTypes.h /usr/include/stdint.h Logger.h BitStream.h \
+ ByteArrayBuffer.h ByteArray.h
 ProgramMapSection.o: ProgramMapSection.cc /usr/include/assert.h \
  /usr/include/features.h /usr/include/bits/predefs.h \
  /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h \
@@ -681,8 +684,8 @@ ProgramMapSection.o: ProgramMapSection.cc /usr/include/assert.h \
  /usr/include/c++/4.4/bits/istream.tcc /usr/include/c++/4.4/map \
  /usr/include/c++/4.4/bits/stl_tree.h /usr/include/c++/4.4/bits/stl_map.h \
  /usr/include/c++/4.4/bits/stl_multimap.h ProgramMapSection.h Table.h \
- TSTypes.h Logger.h BitStream.h ByteArrayBuffer.h ByteArray.h \
- ProgramAssociationSection.h Descriptors.h
+ TSTypes.h /usr/include/stdint.h Logger.h BitStream.h ByteArrayBuffer.h \
+ ByteArray.h ProgramAssociationSection.h Descriptors.h
 ServiceDescriptionTable.o: ServiceDescriptionTable.cc \
  /usr/include/assert.h /usr/include/features.h \
  /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
@@ -755,8 +758,9 @@ ServiceDescriptionTable.o: ServiceDescriptionTable.cc \
  /usr/include/c++/4.4/bits/istream.tcc Descriptors.h \
  /usr/include/c++/4.4/map /usr/include/c++/4.4/bits/stl_tree.h \
  /usr/include/c++/4.4/bits/stl_map.h \
- /usr/include/c++/4.4/bits/stl_multimap.h TSTypes.h Logger.h BitStream.h \
- ByteArrayBuffer.h ByteArray.h ServiceDescriptionTable.h Table.h
+ /usr/include/c++/4.4/bits/stl_multimap.h TSTypes.h /usr/include/stdint.h \
+ Logger.h BitStream.h ByteArrayBuffer.h ByteArray.h \
+ ServiceDescriptionTable.h Table.h
 StdLogger.o: StdLogger.cc /usr/include/stdio.h /usr/include/features.h \
  /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
  /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
@@ -841,8 +845,8 @@ Table.o: Table.cc /usr/include/assert.h /usr/include/features.h \
  /usr/include/c++/4.4/bits/locale_facets.tcc \
  /usr/include/c++/4.4/bits/basic_ios.tcc \
  /usr/include/c++/4.4/bits/ostream.tcc /usr/include/c++/4.4/istream \
- /usr/include/c++/4.4/bits/istream.tcc Table.h TSTypes.h Logger.h \
- BitStream.h ByteArrayBuffer.h ByteArray.h
+ /usr/include/c++/4.4/bits/istream.tcc Table.h TSTypes.h \
+ /usr/include/stdint.h Logger.h BitStream.h ByteArrayBuffer.h ByteArray.h
 TimeDateSection.o: TimeDateSection.cc /usr/include/assert.h \
  /usr/include/features.h /usr/include/bits/predefs.h \
  /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h \
@@ -914,8 +918,9 @@ TimeDateSection.o: TimeDateSection.cc /usr/include/assert.h \
  /usr/include/c++/4.4/bits/istream.tcc /usr/include/c++/4.4/ctime \
  Descriptors.h /usr/include/c++/4.4/map \
  /usr/include/c++/4.4/bits/stl_tree.h /usr/include/c++/4.4/bits/stl_map.h \
- /usr/include/c++/4.4/bits/stl_multimap.h TSTypes.h Logger.h BitStream.h \
- ByteArrayBuffer.h ByteArray.h TimeDateSection.h Table.h MJD.h
+ /usr/include/c++/4.4/bits/stl_multimap.h TSTypes.h /usr/include/stdint.h \
+ Logger.h BitStream.h ByteArrayBuffer.h ByteArray.h TimeDateSection.h \
+ Table.h MJD.h
 TransportPacket.o: TransportPacket.cc /usr/include/assert.h \
  /usr/include/features.h /usr/include/bits/predefs.h \
  /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h \
@@ -983,8 +988,8 @@ TransportPacket.o: TransportPacket.cc /usr/include/assert.h \
  /usr/include/c++/4.4/bits/locale_facets.tcc \
  /usr/include/c++/4.4/bits/basic_ios.tcc \
  /usr/include/c++/4.4/bits/ostream.tcc /usr/include/c++/4.4/istream \
- /usr/include/c++/4.4/bits/istream.tcc TSTypes.h Logger.h \
- ByteArrayBuffer.h ByteArray.h BitStream.h AdaptationField.h \
+ /usr/include/c++/4.4/bits/istream.tcc TSTypes.h /usr/include/stdint.h \
+ Logger.h ByteArrayBuffer.h ByteArray.h BitStream.h AdaptationField.h \
  ProgramMapSection.h Table.h ProgramAssociationSection.h
 TransportStream.o: TransportStream.cc /usr/include/stdio.h \
  /usr/include/features.h /usr/include/bits/predefs.h \
@@ -1063,10 +1068,11 @@ TransportStream.o: TransportStream.cc /usr/include/stdio.h \
  /usr/include/c++/4.4/bits/vector.tcc /usr/include/c++/4.4/map \
  /usr/include/c++/4.4/bits/stl_tree.h /usr/include/c++/4.4/bits/stl_map.h \
  /usr/include/c++/4.4/bits/stl_multimap.h /usr/include/c++/4.4/ctime \
- TSTypes.h Logger.h Table.h BitStream.h ByteArrayBuffer.h ByteArray.h \
- TransportPacket.h ProgramAssociationSection.h ProgramMapSection.h \
- EventInformationTable.h MJD.h ServiceDescriptionTable.h \
- TimeDateSection.h
+ TSTypes.h /usr/include/stdint.h Logger.h Table.h BitStream.h \
+ ByteArrayBuffer.h ByteArray.h TransportPacket.h \
+ ProgramAssociationSection.h ProgramMapSection.h EventInformationTable.h \
+ MJD.h SystemClock.h ServiceDescriptionTable.h TimeDateSection.h \
+ AdaptationField.h
 ts_dump.o: ts_dump.cc /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
@@ -1152,9 +1158,10 @@ ts_dump.o: ts_dump.cc /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/bits/vector.tcc /usr/include/c++/4.4/map \
  /usr/include/c++/4.4/bits/stl_tree.h /usr/include/c++/4.4/bits/stl_map.h \
  /usr/include/c++/4.4/bits/stl_multimap.h /usr/include/c++/4.4/ctime \
- TSTypes.h Logger.h Table.h BitStream.h ByteArrayBuffer.h ByteArray.h \
- /usr/include/assert.h TransportPacket.h ProgramAssociationSection.h \
- ProgramMapSection.h EventInformationTable.h MJD.h StdLogger.h
+ TSTypes.h /usr/include/stdint.h Logger.h Table.h BitStream.h \
+ ByteArrayBuffer.h ByteArray.h /usr/include/assert.h TransportPacket.h \
+ ProgramAssociationSection.h ProgramMapSection.h EventInformationTable.h \
+ MJD.h SystemClock.h StdLogger.h
 tsfilter.o: tsfilter.cc /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
@@ -1240,6 +1247,7 @@ tsfilter.o: tsfilter.cc /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/bits/vector.tcc /usr/include/c++/4.4/map \
  /usr/include/c++/4.4/bits/stl_tree.h /usr/include/c++/4.4/bits/stl_map.h \
  /usr/include/c++/4.4/bits/stl_multimap.h /usr/include/c++/4.4/ctime \
- TSTypes.h Logger.h Table.h BitStream.h ByteArrayBuffer.h ByteArray.h \
- /usr/include/assert.h TransportPacket.h ProgramAssociationSection.h \
- ProgramMapSection.h EventInformationTable.h MJD.h StdLogger.h
+ TSTypes.h /usr/include/stdint.h Logger.h Table.h BitStream.h \
+ ByteArrayBuffer.h ByteArray.h /usr/include/assert.h TransportPacket.h \
+ ProgramAssociationSection.h ProgramMapSection.h EventInformationTable.h \
+ MJD.h SystemClock.h StdLogger.h Spool.h

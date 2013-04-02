@@ -163,6 +163,27 @@ uint32 BitStream::bit_field32(int pos) const {
    return (uint32)(result >> (7 - (end % 8)));
 }
 
+uint64 BitStream::bit_field64(int pos) const {
+   int start = bit_distance[pos];
+   int end = bit_distance[pos + 1] - 1;
+   //std::cout << "DBG1: start=" << start << ", end=" << end << std::endl;
+   assert(start <= end);
+   assert(end - start <= 64);
+   uint64 result = 0;
+   for (int i = start / 8; i <= end / 8; i++) {
+      result <<= 8;
+      uint8 dt = mydata->at(i);
+      if (i == start / 8) {
+	 dt &= start_mask[start % 8];
+      }
+      if (i == end / 8) {
+	 dt &= end_mask[end % 8];
+      }
+      result |= dt;
+   }
+   return (uint64)(result >> (7 - (end % 8)));
+}
+
 int BitStream::append(const ByteArray &src, int off, int len) {
    ByteArrayBuffer *newdata = new ByteArrayBuffer(*mydata);
    if (newdata == NULL) return 0;

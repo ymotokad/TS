@@ -139,7 +139,7 @@ void IndividualService::dump(std::ostream *osp) const {
       case Descriptor::tag_service:
 	 {
 	    Desc_Service desc;
-	    desc.setBuffer(*this, idx, 2 + desclen);
+	    desc.setBuffer(*this, idx);
 	    printf("      service_type=[%s]\n", desc.service_type_string());
 	    printf("      service_provider_name=[%s]\n", desc.service_provider_name_string());
 	    printf("      service_name=[%s]\n", desc.service_name_string());

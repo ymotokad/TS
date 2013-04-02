@@ -16,6 +16,7 @@ static const char *rcsid_TransportStream = "@(#)$Id$";
 #include "ProgramAssociationSection.h"
 #include "ProgramMapSection.h"
 #include "EventInformationTable.h"
+#include "SystemClock.h"
 
 typedef std::map<uint16, Section*, std::less<uint16> > Pid2SectionMap;
 
@@ -63,7 +64,7 @@ class TransportStream {
    void setOption_writeTransportStream(const char *filename, bool onoff = true);
 
  private:
-   void dumpPacket(const TransportPacket &packet) const;
+   void dumpPacket(const TransportPacket &packet);
    bool loadOption_dump;
    bool loadOption_showProgramInfo;
    bool loadOption_writeTransportStream;
@@ -83,13 +84,14 @@ class TransportStream {
    TSEvent tsEvent;
    void setTSEvent(TSEvent flag);
    void clearTSEvent();
-   std::time_t *latestTimestamp;
+   SystemClock sysclock;
    ProgramAssociationSection *latestProgramAssociationTable;
    Program2VersionMap latestEventInformationVersionByProgram;
+   int packet_counter;
  public:
    TransportPacket *packet;
    bool isActiveTSEvent(TSEvent flag) const;
-   std::time_t getLatestTimestamp() const;
+   std::time_t getLatestTimestamp();
    ProgramAssociationSection *getLatestPAT() const;
    std::vector<uint16> programs;
    uint16 getPIDByProgram(uint16 program) const;

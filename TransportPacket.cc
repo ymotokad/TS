@@ -61,6 +61,7 @@ TransportPacket::TransportPacket(ByteArrayBuffer *buffer) {
       if (buffer->length() >= offset + len) {
 	 AdaptationField *af = new AdaptationField();
 	 af->setBuffer(buffer->subarray(offset, len));
+	 af->load();
 	 adaptationField = af;
 	 offset += len;
       } else {

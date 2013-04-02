@@ -8,17 +8,25 @@ static const char *rcsid_Nbp = "@(#)$Id$";
 #endif /* IMPLEMENTING_ADAPTATIONFIELD */
 #include "BitStream.h"
 
-class AdaptationField;
-
 class AdaptationField : public BitStream {
  public:
    AdaptationField();
+   void load();
    void dump(std::ostream *osp) const;
    int adaptation_field_length() const;
+   bool hasLoaded() const;
+   bool hasCompletePCR() const;
+   uint64 getBase() const;
+   uint16 getExt() const;
  protected:
    void initobj();
-   /*
+   void initvars();
    bool hasPCR() const;
+   bool loaded;
+   bool PCR_available;
+   uint64 base;
+   uint16 ext;
+   /*
    bool hasOPCR() const;
    bool isSplicingPoint() const;
    bool hasTransportPrivateData() const;
@@ -44,6 +52,28 @@ class AdaptationField : public BitStream {
 
 inline int AdaptationField::adaptation_field_length() const {
    return (int)bit_field8(AdaptationField_adaptation_field_length);
+};
+
+inline bool AdaptationField::hasPCR() const {
+   return bit_field1(AdaptationField_PCR_flag);
+};
+
+inline bool AdaptationField::hasLoaded() const {
+   return loaded;
+};
+
+inline bool AdaptationField::hasCompletePCR() const {
+   return PCR_available;
+};
+
+inline uint64 AdaptationField::getBase() const {
+   assert(hasCompletePCR());
+   return base;
+};
+
+inline uint16 AdaptationField::getExt() const {
+   assert(hasCompletePCR());
+   return ext;
 };
 
 
