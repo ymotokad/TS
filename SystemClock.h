@@ -35,7 +35,7 @@ class SystemClock {
    SystemClock();
    void setAbsoluteTime(const std::time_t &src);
    std::time_t getAbsoluteTime();
-   uint64 getRelativeTime() const; // Seconds
+   uint64 getRelativeTime() const; // in time base
    void tick();
    void sync(uint16 pid, uint64 base, uint16 ext);
  protected:
@@ -89,6 +89,9 @@ inline uint64 SystemClock::getRelativeTime() const {
 }
 
 inline void SystemClock::sync(uint16 pid, uint64 base, uint16 ext) {
+   // Use PCR in 'frequently appearing' stream so we keep more acurate
+   // clock value. It is decided as 'frequently appearing' stream if
+   // previous sync was done with the same pid with this sync.
    if (reltime_pid == pid) {
       reltime_pid_counter++;
    } else if (reltime_pid_counter == 0) {
