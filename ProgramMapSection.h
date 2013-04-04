@@ -9,7 +9,7 @@ static const char *rcsid_ProgramMapSection = "@(#)$Id$";
 #include "Table.h"
 #include "ProgramAssociationSection.h"
 
-typedef void (*StreamCallback)(uint16, const char *, void *);
+typedef void (*StreamCallback)(uint16 pid, uint16 program, const char *tagstr, uint8 component_tag, void *dtp);
 
 class ProgramMapSection : public Section {
  public:

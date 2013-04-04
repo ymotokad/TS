@@ -214,15 +214,21 @@ void ProgramMapSection::for_all_streams(StreamCallback scp, void *dtp) const {
 	 elmpid &= 0x1fff;
 	 int eslen = byteAt(idx + 3) << 8 | byteAt(idx + 4);
 	 eslen &= 0x0fff;
-	 (*scp)(elmpid, stream_type(sttype), dtp);
 	 
 	 idx += 5;
 	 int es_tail = idx + eslen;
+	 uint8 component_tag = 0;
 	 while (idx < es_tail) {
 	    int ed_tag = byteAt(idx);
 	    int len = 2 + byteAt(idx + 1);
+	    if (ed_tag == Descriptor::tag_stream_identifier) {
+	       Desc_StreamIdentifier desc;
+	       desc.setBuffer(*this, idx, len);
+	       component_tag = desc.component_tag();
+	    }
 	    idx += len;
 	 }
+	 (*scp)(elmpid, program_number(), stream_type(sttype), component_tag, dtp);
       }
    } catch (ByteArrayOverflowException e) {
       logger->error("buffer underflow!!");
