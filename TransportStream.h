@@ -88,14 +88,17 @@ class TransportStream {
    ProgramAssociationSection *latestProgramAssociationTable;
    Program2VersionMap latestEventInformationVersionByProgram;
    int packet_counter;
+   EventInformationTable *latestEventInformationTabale_Actual_Present;
  public:
    TransportPacket *packet;
    bool isActiveTSEvent(TSEvent flag) const;
-   std::time_t getLatestTimestamp();
+   std::time_t getTime();
    ProgramAssociationSection *getLatestPAT() const;
    std::vector<uint16> programs;
    uint16 getPIDByProgram(uint16 program) const;
+   uint16 getProgramMapPIDByPID(uint16 pid) const;
    ProgramMapSection *getProgramMapTableByPID(uint16 pid) const;
+   const EventInformationTable *getEventInformationTabale() const;
    std::vector<uint16> programs_updated;  // A list of programs whose PMT was updated
    
    // Program Specific Information
@@ -141,6 +144,10 @@ inline void TransportStream::clearTSEvent() {
 
 inline bool TransportStream::isActiveTSEvent(TSEvent flag) const {
    return ((tsEvent & flag) != 0);
+}
+
+inline const EventInformationTable *TransportStream::getEventInformationTabale() const {
+   return latestEventInformationTabale_Actual_Present;
 }
 
 

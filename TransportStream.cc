@@ -28,6 +28,7 @@ TransportStream::TransportStream() {
    loadOption_showProgramInfo = false;
    loadOption_writeTransportStream = false;
    latestProgramAssociationTable = NULL;
+   latestEventInformationTabale_Actual_Present = NULL;
    tsEvent = 0;
    packet = NULL;
    packet_counter = 0;
@@ -41,6 +42,9 @@ TransportStream::TransportStream() {
 TransportStream::~TransportStream() {
    if (packet != NULL) delete packet;
    clearProgramMapTables();
+   if (latestEventInformationTabale_Actual_Present != NULL) {
+      delete latestEventInformationTabale_Actual_Present;
+   }
 }
 
 
@@ -120,7 +124,7 @@ int TransportStream::decode(BufferedInputStream *isp) {
    // System Clock
    if (packet->has_adaptation_field()) {
       const AdaptationField *ap = packet->getAdaptationField();
-      if (ap->hasCompletePCR()) {
+      if (ap != NULL && ap->hasCompletePCR()) {
 	 sysclock.sync(pid, ap->getBase(), ap->getExt());
       } else {
 	 sysclock.tick();
@@ -373,18 +377,22 @@ void TransportStream::loadTimeDateSection(const Section &section) {
 }
 
 void TransportStream::loadEventInformationTable(const Section &section) {
-   EventInformationTable eit;
-   eit.setBuffer(section);
+   EventInformationTable *eit = new EventInformationTable();
+   eit->setBuffer(section);
 
-   if (!(TableID_EventInformationTable_Actual_Present <= eit.table_id() &&
-	 eit.table_id() <= TableID_EventInformationTable_max)) {
-      logger->warning("EventInformationTable: inappropriate table_id: 0x%x", eit.table_id());
+   if (!(TableID_EventInformationTable_Actual_Present <= eit->table_id() &&
+	 eit->table_id() <= TableID_EventInformationTable_max)) {
+      logger->warning("EventInformationTable: inappropriate table_id: 0x%x", eit->table_id());
       return;
    }
 
-   if (eit.table_id() == TableID_EventInformationTable_Actual_Present) {
-      uint16 pno = eit.service_id();
-      uint8 ver = eit.version_number();
+   if (eit->table_id() == TableID_EventInformationTable_Actual_Present) {
+      if (latestEventInformationTabale_Actual_Present != NULL) {
+	 delete latestEventInformationTabale_Actual_Present;
+      }
+      latestEventInformationTabale_Actual_Present = eit;
+      uint16 pno = eit->service_id();
+      uint8 ver = eit->version_number();
       Program2VersionMap::iterator itr = latestEventInformationVersionByProgram.find(pno);
       if (itr == latestEventInformationVersionByProgram.end()) {
 	 setTSEvent(TSEvent_Update_EventInformationTable_Actual_Present);
@@ -396,10 +404,11 @@ void TransportStream::loadEventInformationTable(const Section &section) {
 	    latestEventInformationVersionByProgram[pno] = ver;
 	 }
       }
-      if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
+      //if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
+      if (loadOption_showProgramInfo) {
 	 char buf[20];
 	 printf("*** [%s] ", SystemClock_toString(buf, sysclock.getRelativeTime()));
-	 eit.dump(&std::cout);
+	 eit->dump(&std::cout);
       }
    }
 }
@@ -414,6 +423,12 @@ void TransportStream::setPIDByProgram(uint16 pno, uint16 pid) {
 uint16 TransportStream::getPIDByProgram(uint16 pno) const {
    std::map<uint16, uint16>::const_iterator itr = program2PID.find(pno);
    if (itr == program2PID.end()) return 0;
+   return itr->second;
+}
+
+uint16 TransportStream::getProgramMapPIDByPID(uint16 pid) const {
+   std::map<uint16, uint16>::const_iterator itr = PID2Program.find(pid);
+   if (itr == PID2Program.end()) return 0;
    return itr->second;
 }
 
@@ -482,7 +497,7 @@ void TransportStream::showPSI() const {
    }
 }
 
-std::time_t TransportStream::getLatestTimestamp() {
+std::time_t TransportStream::getTime() {
    return sysclock.getAbsoluteTime();
 }
 
