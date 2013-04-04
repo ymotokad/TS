@@ -35,9 +35,9 @@ ByteArray::ByteArray(const ByteArray& src, int off, int length) {
       tail = src.tail;
    } else {
       assert(src.length() >= off + length);
-      tail = off + length;
+      tail = src.offset + off + length;
    }
-   offset = off;
+   offset = src.offset + off;
 }
 
 
@@ -68,8 +68,7 @@ ByteArray::at(int idx) const {
 
 ByteArray *
 ByteArray::subarray(int idx, int len) const {
-   idx += offset;
-   if (idx >= tail) {
+   if (idx + offset >= tail) {
       return new ByteArray(NULL, 0);
    }
    return new ByteArray(*this, idx, len);
