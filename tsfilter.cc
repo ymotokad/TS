@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
+#include <stdio.h>
 #include <getopt.h>
 #include "TransportStream.h"
 #include "StdLogger.h"
@@ -62,7 +63,7 @@ void ActivePID::reset() {
 /*
  * Callback function for PMT parse
  */
-void RegisterPIDFromPMT(uint16 pid, const char *tagstr, void *dtp) {
+void RegisterPIDFromPMT(uint16 pid, uint16 program, const char *tagstr, uint8 component_tag, void *dtp) {
    ActivePID *pids = (ActivePID *)dtp;
    pids->activate(pid);
 }
@@ -207,6 +208,7 @@ int main(int argc, char *argv[]) {
 		     uint16 pno = ts.programs_updated[i];
 		     if (pno == 0 || pno == program_id) {
 			uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
+			pidFilter.activate(pmt_pid);
 			ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
 			assert(pmt != NULL);
 			assert(pmt->isComplete());
