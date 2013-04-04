@@ -9,10 +9,13 @@ static const char *rcsid_EventInformationTable = "@(#)$Id$";
 #include "Table.h"
 #include "MJD.h"
 
+typedef void (*ComponentCallback)(uint16 program, const char *str, uint8 component_tag, void *dtp);
+
 class EventInformationTable : public Section {
  public:
    EventInformationTable();
    EventInformationTable(uint8 continuous_counter);
+   void for_all_components(ComponentCallback ccp, void *) const;
    void dump(std::ostream *osp) const;
 
    uint16 service_id() const;
@@ -45,6 +48,7 @@ class IndividualEvent : public BitStream {
  public:
    IndividualEvent();
    void dump(std::ostream *osp) const;
+   void for_all_components(uint16 program, ComponentCallback ccp, void *) const;
    int length() const;
 
    uint16 event_id() const;

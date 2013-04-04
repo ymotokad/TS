@@ -68,6 +68,20 @@ void EventInformationTable::dump(std::ostream *osp) const {
    }
 }
 
+void EventInformationTable::for_all_components(ComponentCallback ccp, void *dtp) const {
+   if (table_id() != TableID_EventInformationTable_Actual_Present) return; // For now
+   int length = section_length()
+      - (sizeofBufferBefore(pos_start_of_individual_events) - sizeofBufferBefore(pos_section_length + 1))
+      - 4; // CRC_32
+   int evtlen;
+   for (int idx = 0; idx < length; idx += evtlen) {
+      IndividualEvent evt;
+      evt.setBuffer(*this, sizeofBufferBefore(pos_start_of_individual_events) + idx, -1);
+      evt.for_all_components(service_id(), ccp, dtp);
+      evtlen = evt.length();
+   }
+}
+
 uint16 EventInformationTable::service_id() const {
    return bit_field16(pos_service_id);
 }
@@ -141,6 +155,28 @@ uint16 IndividualEvent::descriptors_loop_length() const {
 }
 
 
+void IndividualEvent::for_all_components(uint16 program, ComponentCallback ccp, void *dtp) const {
+   int len = descriptors_loop_length();
+   int size;
+   for (int i = 0; i < len; i += size) {
+      int idx = sizeofBufferBefore(pos_start_of_descriptors) + i;
+      int desctag = byteAt(idx);
+      int desclen = byteAt(idx + 1);
+      if (bufferLength() >= idx + 2 + desclen) {
+	 if (desctag == Descriptor::tag_component) {
+	    Desc_Component desc;
+	    desc.setBuffer(*this, idx, 2 + desclen);
+	    (*ccp)(program, desc.component_string(), desc.component_tag(), dtp);
+	 } else if (desctag == Descriptor::tag_audio_component) {
+	    Desc_AudioComponent desc;
+	    desc.setBuffer(*this, idx, 2 + desclen);
+	    (*ccp)(program, desc.component_string(), desc.component_tag(), dtp);
+	 }
+      }
+      size = 2 + desclen;
+   }
+}
+
 void IndividualEvent::dump(std::ostream *osp) const {
    MJD start_time(start_time_ymd(), start_time_hms());
 
@@ -155,35 +191,37 @@ void IndividualEvent::dump(std::ostream *osp) const {
       int desclen = byteAt(idx + 1);
       printf("      descriptor=%s, len=%d\n", Descriptor::getName(desctag), desclen);
       
-      switch (desctag) {
-      case Descriptor::tag_service:
-	 {
-	    Desc_Service desc;
-	    desc.setBuffer(*this, idx, 2 + desclen);
-	    printf("        service_type=[%s]\n", desc.service_type_string());
-	    printf("        service_provider_name=[%s]\n", desc.service_provider_name_string());
-	    printf("        service_name=[%s]\n", desc.service_name_string());
+      if (bufferLength() >= idx + 2 + desclen) {
+	 switch (desctag) {
+	 case Descriptor::tag_service:
+	    {
+	       Desc_Service desc;
+	       desc.setBuffer(*this, idx, 2 + desclen);
+	       printf("        service_type=[%s]\n", desc.service_type_string());
+	       printf("        service_provider_name=[%s]\n", desc.service_provider_name_string());
+	       printf("        service_name=[%s]\n", desc.service_name_string());
+	    }
+	    break;
+	 case Descriptor::tag_component:
+	    {
+	       Desc_Component desc;
+	       desc.setBuffer(*this, idx, 2 + desclen);
+	       printf("        component is [%s]\n", desc.component_string());
+	       printf("        component_tag=0x%02x\n", desc.component_tag());
+	    }
+	    break;
+	 case Descriptor::tag_audio_component:
+	    {
+	       Desc_AudioComponent desc;
+	       desc.setBuffer(*this, idx, 2 + desclen);
+	       printf("        component is [%s]\n", desc.component_string());
+	       printf("        component_tag=0x%02x\n", desc.component_tag());
+	    }
+	    break;
+	 default:
+	    hexdump(8, osp, idx, 2 + desclen);
+	    break;
 	 }
-	 break;
-      case Descriptor::tag_component:
-	 {
-	    Desc_Component desc;
-	    desc.setBuffer(*this, idx, 2 + desclen);
-	    printf("        component is [%s]\n", desc.component_string());
-	    printf("        component_tag=0x%02x\n", desc.component_tag());
-	 }
-	 break;
-      case Descriptor::tag_audio_component:
-	 {
-	    Desc_AudioComponent desc;
-	    desc.setBuffer(*this, idx, 2 + desclen);
-	    printf("        component is [%s]\n", desc.component_string());
-	    printf("        component_tag=0x%02x\n", desc.component_tag());
-	 }
-	 break;
-      default:
-	 hexdump(8, osp, idx, 2 + desclen);
-	 break;
       }
 
       size = 2 + desclen;
