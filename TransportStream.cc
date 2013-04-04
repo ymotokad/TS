@@ -404,8 +404,7 @@ void TransportStream::loadEventInformationTable(const Section &section) {
 	    latestEventInformationVersionByProgram[pno] = ver;
 	 }
       }
-      //if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
-      if (loadOption_showProgramInfo) {
+      if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
 	 char buf[20];
 	 printf("*** [%s] ", SystemClock_toString(buf, sysclock.getRelativeTime()));
 	 eit->dump(&std::cout);
