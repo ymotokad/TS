@@ -355,7 +355,7 @@ const char *Desc_AudioComponent::component_string() {
       streamTypeMap[0x14] = "ISO/IEC 13818-6 Synchronized Download Protocol";
    }
 
-   assert(stream_content() == 0x02);
+   if (stream_content() != 0x02) return "Audio, unknown";
 
    const char *ctype = NULL;
    const char *stype = NULL;
