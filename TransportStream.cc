@@ -215,6 +215,9 @@ void TransportStream::dumpPacket(const TransportPacket &packet) {
    case PID_TransportStreamDescriptionTable:
       pid = "Transport Stream Description Table";
       break;
+   case PID_EventInformationTable:
+      pid = "Event Information Table";
+      break;
    case PID_NullPacket:
       pid = "Null Packet";
       break;
@@ -404,10 +407,14 @@ void TransportStream::loadEventInformationTable(const Section &section) {
 	    latestEventInformationVersionByProgram[pno] = ver;
 	 }
       }
-      if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
+      if (loadOption_showProgramInfo) {
 	 char buf[20];
 	 printf("*** [%s] ", SystemClock_toString(buf, sysclock.getRelativeTime()));
-	 eit->dump(&std::cout);
+	 if (isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
+	    eit->dump(&std::cout);
+	 } else {
+	    printf(" Event Information Table for program %d\n", eit->service_id());
+	 }
       }
    }
 }
