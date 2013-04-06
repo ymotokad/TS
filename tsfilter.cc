@@ -270,12 +270,16 @@ int main(int argc, char *argv[]) {
    }
    
    if (opt_o) {
+      if (spool != NULL) {
+	 for (int i = 0; i < probe_size; i++) {
+	    const ByteArray *rawdata = spool->dataAt(i);
+	    ofs.write((const char *)rawdata->part(), rawdata->length());
+	 }
+	 delete spool;
+      }
       ofs.close();
    }
    ifs.close();
-   if (spool != NULL) {
-      delete spool;
-   }
 
    return 0;
 }
