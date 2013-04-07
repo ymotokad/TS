@@ -37,7 +37,6 @@ public:
       PIDMap::iterator itr = pinfos.begin();
       while (itr != pinfos.end()) {
 	 delete itr->second;
-	 pinfos.erase(itr);
 	 itr++;
       }
    }
@@ -106,7 +105,6 @@ public:
       ComponentMap::iterator itr = components.begin();
       while (itr != components.end()) {
 	 delete itr->second;
-	 components.erase(itr);
 	 itr++;
       }
    }
@@ -180,7 +178,6 @@ public:
       ProgramInfoMap::iterator itr = programs.begin();
       while (itr != programs.end()) {
 	 delete itr->second;
-	 programs.erase(itr);
 	 itr++;
       }
    }
@@ -318,8 +315,6 @@ int main(int argc, char *argv[]) {
    BufferedInputStream *bisp = new BufferedInputStream(&ifs);
 
    int packet_counter = 0;
-   PIDManager pid_manager;
-   ProgramManager prog_manager;
 
    // Input stream
    TransportStream ts;
@@ -327,6 +322,9 @@ int main(int argc, char *argv[]) {
    ts.setOption_showProgramInfo(opt_s);
    ifs.exceptions(std::ios::badbit);
    try {
+      PIDManager pid_manager;
+      ProgramManager prog_manager;
+      
       while (!bisp->eof()) {
 	 packet_counter++;
 	 if (packet_counter > probe_size) break;
