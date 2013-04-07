@@ -113,7 +113,7 @@ int TransportStream::decode(BufferedInputStream *isp) {
       if (buffer == NULL) return 0;
       packet = new TransportPacket(buffer);
    }
-      
+
    if (loadOption_dump) {
       dumpPacket(*packet);
    }
@@ -140,7 +140,7 @@ int TransportStream::decode(BufferedInputStream *isp) {
 	 int prevlen;
 	 if (packet->payload_unit_start_indicator()) {
 	    int pointer_field = packet->getPayload()->at(0);
-	    prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 0, pointer_field);
+	    prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 1, pointer_field);
 	 } else {
 	    prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 0);
 	 }
@@ -149,9 +149,9 @@ int TransportStream::decode(BufferedInputStream *isp) {
 	 }
 	 if (prev->isComplete()) {
 	    loadTable(pid, *prev);
+	    unsetIncompleteSection(pid);
+	    delete prev;
 	 }
-	 unsetIncompleteSection(pid);
-	 delete prev;
       }
    }
 
@@ -170,6 +170,7 @@ int TransportStream::decode(BufferedInputStream *isp) {
 	    loadTable(pid, *sec);
 	    delete sec;
 	 } else {
+	    //assert(getIncompleteSection(pid) == NULL);
 	    setIncompleteSection(pid, sec);
 	 }
       } else {
@@ -408,12 +409,10 @@ void TransportStream::loadEventInformationTable(const Section &section) {
 	 }
       }
       if (loadOption_showProgramInfo) {
-	 char buf[20];
-	 printf("*** [%s] ", SystemClock_toString(buf, sysclock.getRelativeTime()));
 	 if (isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
+	    char buf[20];
+	    printf("*** [%s] ", SystemClock_toString(buf, sysclock.getRelativeTime()));
 	    eit->dump(&std::cout);
-	 } else {
-	    printf(" Event Information Table for program %d\n", eit->service_id());
 	 }
       }
    }
