@@ -243,7 +243,7 @@ static void usage(const char *argv0) {
    std::cerr << "   -d            print debug information" << std::endl;
    std::cerr << "   -p            print the most major program id" << std::endl;
    std::cerr << "   -c            print stream details for the most major program" << std::endl;
-   std::cerr << "   -k N          probe in leading N packets. If not specified, " << PROBE_SIZE << " will be used" << std::endl;
+   std::cerr << "   -k N          probe in leading N packets. If not specified, " << PROBE_SIZE << " will be used. Use 0 to evaluate all packets." << std::endl;
 }
 
 /*
@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
       
       while (!bisp->eof()) {
 	 packet_counter++;
-	 if (packet_counter > probe_size) break;
+	 if (probe_size != 0 && packet_counter > probe_size) break;
 
 	 /*----------------------------
 	  * Decode input stream

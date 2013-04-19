@@ -52,6 +52,20 @@ TransportStream::~TransportStream() {
  * other methods
  */
 
+void TransportStream::reset() {
+   clearProgramMapTables();
+   latestEventInformationVersionByProgram.clear();
+   if (latestEventInformationTabale_Actual_Present != NULL) {
+      delete latestEventInformationTabale_Actual_Present;
+      latestEventInformationTabale_Actual_Present = NULL;
+   }
+   if (latestProgramAssociationTable != NULL) {
+      delete latestProgramAssociationTable;
+      latestProgramAssociationTable = NULL;
+   }
+}
+
+
 #define NUM_BYTES_LOOK_FORWARD		(SIZEOF_PACKET * 3)
 #define NUM_PACKETS_MATCH		4
 static ByteArrayBuffer *find_packet(BufferedInputStream *isp) {
@@ -314,7 +328,7 @@ void TransportStream::loadProgramAssociationTable(const Section &section) {
    if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
       int numPrograms = pat.numPrograms();
       char buf[20];
-      printf("*** [%s] Program Association Table ***\n", SystemClock_toString(buf, sysclock.getRelativeTime()));
+      printf("*** [%s] Program Association Table ***\n", sysclock.getRelativeTime().toString(buf));
       for (int i = 0; i < numPrograms; i++) {
 	 uint16 pno = pat.program_number(i);
 	 printf("  program no=%d, PID=0x%04x\n", pno, pat.program_map_PID(i));
@@ -336,7 +350,7 @@ void TransportStream::loadProgramMapTable(const Section &section, uint16 pid) {
       setTSEvent(TSEvent_Update_ProgramMapTable);
       if (loadOption_showProgramInfo) {
 	 char buf[20];
-	 printf("*** [%s] Program Map Table ***\n", SystemClock_toString(buf, sysclock.getRelativeTime()));
+	 printf("*** [%s] Program Map Table ***\n", sysclock.getRelativeTime().toString(buf));
 	 assert(pmt.isComplete());
 	 printf("  -- pid: 0x%04x, program=%d, PCR_PID=0x%04x\n", (int)pid, (int)pmt.program_number(), pmt.PCR_PID());
 	 pmt.dump(&std::cout);
@@ -376,7 +390,7 @@ void TransportStream::loadTimeDateSection(const Section &section) {
       std::tm *tp = localtime(&t);
       char buf2[1024];
       strftime(buf2, sizeof buf2, "%Y/%m/%d %H:%M:%S", tp);
-      printf("*** [%s] %s ***\n", SystemClock_toString(buf1, sysclock.getRelativeTime()), buf2);
+      printf("*** [%s] %s ***\n", sysclock.getRelativeTime().toString(buf1), buf2);
    }
 }
 
@@ -411,7 +425,7 @@ void TransportStream::loadEventInformationTable(const Section &section) {
       if (loadOption_showProgramInfo) {
 	 if (isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
 	    char buf[20];
-	    printf("*** [%s] ", SystemClock_toString(buf, sysclock.getRelativeTime()));
+	    printf("*** [%s] ", sysclock.getRelativeTime().toString(buf));
 	    eit->dump(&std::cout);
 	 }
       }

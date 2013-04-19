@@ -62,6 +62,9 @@ class TransportStream {
    void setOption_dump(bool onoff = true);
    void setOption_showProgramInfo(bool onoff = true);
    void setOption_writeTransportStream(const char *filename, bool onoff = true);
+   const ProgramClock *getStreamTime() const;
+   const ProgramClock *getStreamTimeRoundUpBy(int seconds) const;
+   void reset();
 
  private:
    void dumpPacket(const TransportPacket &packet);
@@ -120,6 +123,14 @@ class TransportStream {
    void unsetIncompleteSection(uint16 pid);
    Section *getIncompleteSection(uint16 pid) const;
 };
+
+inline const ProgramClock *TransportStream::getStreamTime() const {
+   return sysclock.getStreamTime();
+}
+
+inline const ProgramClock *TransportStream::getStreamTimeRoundUpBy(int seconds) const {
+   return sysclock.getStreamTimeRoundUpBy(seconds);
+}
 
 inline void TransportStream::setOption_dump(bool onoff) {
    loadOption_dump = onoff;

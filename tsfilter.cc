@@ -15,15 +15,19 @@ static char rcsid[] = "@(#)$Id$";
 
 Logger *logger;
 
+#define MAX_PACKETS_WITHOUT_PCR		10000
+#define PACKETS_TO_SKIP_AFTER_FLUSH	1000
+
 static void usage(const char *argv0) {
-   std::cerr << "usage: " << argv0 << " [options]" << " -i input.ts [-o output.ts]" << std::endl;
+   std::cerr << "usage: " << argv0 << " [options]" << " -i input.ts -o output.ts" << std::endl;
    std::cerr << " options:" << std::endl;
    std::cerr << "   -v            print verbose message" << std::endl;
-   std::cerr << "   -s            show program information" << std::endl;
    std::cerr << "   -d            print debug information" << std::endl;
    std::cerr << "   -p program_id add specified program to output stream" << std::endl;
    std::cerr << "   -e            add EIT/SDT to output stream" << std::endl;
    std::cerr << "   -k N          probe leading N packets and skip until begining of the program, which is judged by Program Map Table change" << std::endl;
+   std::cerr << "   -s seconds    skip begining packets for specified seconds" << std::endl;
+   std::cerr << "   -t seconds    stop after writing specified seconds of packets to output stream" << std::endl;
 }
 
 /*
@@ -84,21 +88,19 @@ int main(int argc, char *argv[]) {
    char *opt_o = NULL;
    int program_id = -1;
    int probe_size = 0;
+   int seconds_to_skip = 0;
+   int seconds_to_record = 0;
    ByteArraySpool *spool = NULL;
 
    // Parse command line options.
    int option_char;
-   while ((option_char = getopt(argc, argv, "vdsi:o:p:ek:")) != -1) {
+   while ((option_char = getopt(argc, argv, "vdi:o:p:ek:s:t:")) != -1) {
       switch (option_char) {
       case 'v':
 	 opt_v = true;
 	 break;
       case 'd':
 	 opt_d = true;
-	 opt_v = true;
-	 break;
-      case 's':
-	 opt_s = true;
 	 break;
       case 'e':
 	 opt_e = true;
@@ -115,6 +117,12 @@ int main(int argc, char *argv[]) {
       case 'k':
 	 probe_size = atoi(optarg);
 	 break;
+      case 's':
+	 seconds_to_skip = atoi(optarg);
+	 break;
+      case 't':
+	 seconds_to_record = atoi(optarg);
+	 break;
       case 'h':
       default:
 	 usage(argv[0]);
@@ -124,8 +132,12 @@ int main(int argc, char *argv[]) {
    argv0 = argv[0];
    argc -= optind;
    argv += optind;
-   if (argc != 0 || opt_i == NULL) {
+   if (argc != 0 || opt_i == NULL || opt_o == NULL) {
       usage(argv0);
+      return 1;
+   }
+   if ((seconds_to_skip > 0 || seconds_to_record > 0) && probe_size > 0) {
+      std::cerr << argv0 << ": -k cannot be combined with -s or -t" << std::endl;
       return 1;
    }
 
@@ -158,7 +170,7 @@ int main(int argc, char *argv[]) {
    // Input stream
    TransportStream ts;
    ts.setOption_dump(opt_v);
-   ts.setOption_showProgramInfo(opt_s);
+   ts.setOption_showProgramInfo(opt_v);
    ts.setOption_writeTransportStream(NULL, false);
    
    ifs.exceptions(std::ios::badbit);
@@ -173,6 +185,11 @@ int main(int argc, char *argv[]) {
 	    pidFilter.activate(PID_ServiceDescriptionTable);
 	 }
       }
+
+      int packet_counter = 0;
+      int packets_to_skip = 0;
+      const ProgramClock *skip_until = NULL;
+      ProgramClock *record_until = NULL;
       
       while (!bisp->eof()) {
 
@@ -186,11 +203,10 @@ int main(int argc, char *argv[]) {
 	    return 1;
 	 }
 
-	 if (opt_o && ts.packet) {
+	 if (ts.packet) {
 	    /*----------------------------
 	     * Filterings
 	     */
-	    bool writePacket = true;
 
 	    if (program_id >= 0) {
 	       if (ts.isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
@@ -219,37 +235,93 @@ int main(int argc, char *argv[]) {
 	       }
 	    }
 
-	    if (!pidFilter.isActive(ts.packet->PID())) {
-	       writePacket = false;
+	    /*----------------------------
+	     * Skip?
+	     */
+	    if (seconds_to_skip != 0) {
+	       const ProgramClock *now = ts.getStreamTime();
+	       if (skip_until == NULL) {
+		  if (now->isInitialized()) {
+		     ProgramClock *t = new ProgramClock(*now);
+		     assert(seconds_to_skip > 0);
+		     t->append(seconds_to_skip);
+		     skip_until = t;
+		  } else {
+		     if (packet_counter > MAX_PACKETS_WITHOUT_PCR) {
+			logger->error("Couldn't find PCR in %d packets.", MAX_PACKETS_WITHOUT_PCR);
+			return 1;
+		     }
+		  }
+		  packet_counter++;
+		  continue;
+	       } else {
+		  assert(now->isInitialized());
+		  if (skip_until->isGreaterThanOrEqualTo(*now)) {
+		     packet_counter++;
+		     continue;
+		  } else {
+		     seconds_to_skip = 0;
+		     delete skip_until;
+		     skip_until = NULL;
+		  }
+	       }
+	    }
+	    if (seconds_to_record != 0) {
+	       const ProgramClock *now = ts.getStreamTime();
+	       if (record_until == NULL) {
+		  if (now->isInitialized()) {
+		     record_until = new ProgramClock(*now);
+		     record_until->append(seconds_to_record);
+		  } else {
+		     if (packet_counter > MAX_PACKETS_WITHOUT_PCR) {
+			logger->error("Couldn't find PCR in %d packets.", MAX_PACKETS_WITHOUT_PCR);
+			return 1;
+		     }
+		  }
+		  packet_counter++;
+		  continue;
+	       } else {
+		  if (!record_until->isGreaterThanOrEqualTo(*now)) {
+		     seconds_to_record = 0;
+		     delete record_until;
+		     record_until = NULL;
+		     break;
+		  }
+	       }
 	    }
 
 	    /*----------------------------
 	     * Write output stream
 	     */
-	    if (writePacket) {
+	    if (pidFilter.isActive(ts.packet->PID())) {
 	       if (spool) {
-		  if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
+		  if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable | TSEvent_Update_EventInformationTable_Actual_Present)) {
 		     spool->flush();
+		     packets_to_skip = PACKETS_TO_SKIP_AFTER_FLUSH;
 		  }
-	       
-		  if (spool->length() < probe_size) {
-		     spool->append(*(ts.packet->getRawdata()));
+
+		  if (packets_to_skip > 0) {
+		     packets_to_skip--;
 		  } else {
-		     // spool is full. write all the data in the spool and stop spooling
-		     assert(writePacket);
-		     for (int i = 0; i < probe_size; i++) {
-			const ByteArray *rawdata = spool->dataAt(i);
+		     if (spool->length() < probe_size) {
+			spool->append(*(ts.packet->getRawdata()));
+		     } else {
+			// spool is full. write all the data in the spool and stop spooling
+			for (int i = 0; i < probe_size; i++) {
+			   const ByteArray *rawdata = spool->dataAt(i);
+			   assert(rawdata->length() == SIZEOF_PACKET);
+			   ofs.write((const char *)rawdata->part(), rawdata->length());
+			}
+			delete spool;
+			spool = NULL;
+		  
+			const ByteArray *rawdata = ts.packet->getRawdata();
 			assert(rawdata->length() == SIZEOF_PACKET);
 			ofs.write((const char *)rawdata->part(), rawdata->length());
 		     }
-		     delete spool;
-		     spool = NULL;
-		  
-		     const ByteArray *rawdata = ts.packet->getRawdata();
-		     assert(rawdata->length() == SIZEOF_PACKET);
-		     ofs.write((const char *)rawdata->part(), rawdata->length());
 		  }
 	       } else {
+		  assert(packets_to_skip == 0);
 		  const ByteArray *rawdata = ts.packet->getRawdata();
 		  assert(rawdata->length() == SIZEOF_PACKET);
 		  ofs.write((const char *)rawdata->part(), rawdata->length());
@@ -263,6 +335,8 @@ int main(int argc, char *argv[]) {
 	 if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
 	    ts.programs_updated.clear();
 	 }
+
+	 packet_counter++;
       }
    } catch (const std::ios::failure& error) {
       std::cerr << "I/O exception: " << error.what() << std::endl;

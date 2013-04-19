@@ -4,6 +4,7 @@ LIBS=
 
 OBJS=StdLogger.o \
 	ByteArray.o ByteArrayBuffer.o BitStream.o \
+	SystemClock.o \
 	Table.o \
 	ProgramAssociationSection.o ProgramMapSection.o \
 	AdaptationField.o Descriptors.o \
@@ -21,7 +22,7 @@ tsinfo: $(OBJS) tsinfo.o
 	$(CXX) -o $@ $(OBJS) tsinfo.o $(LIBS)
 
 clean:
-	@rm -f $(OBJS) *.o *~ ts_dump tsfilter
+	@rm -f $(OBJS) *.o *~ ts_dump tsfilter tsinfo
 
 .cc.o:
 	$(CXX) $(CXXFLAGS) -c $<
@@ -48,7 +49,7 @@ AdaptationField.o: AdaptationField.cc /usr/include/assert.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/c++/4.4/iostream \
+ /usr/include/bits/stdio.h /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
@@ -325,7 +326,7 @@ Descriptors.o: Descriptors.cc /usr/include/assert.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/c++/4.4/iostream \
+ /usr/include/bits/stdio.h /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
@@ -397,7 +398,7 @@ EventInformationTable.o: EventInformationTable.cc /usr/include/assert.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/c++/4.4/iostream \
+ /usr/include/bits/stdio.h /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
@@ -470,8 +471,9 @@ MJD.o: MJD.cc /usr/include/stdio.h /usr/include/features.h \
  /usr/include/bits/types.h /usr/include/bits/typesizes.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
- /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h MJD.h \
- /usr/include/c++/4.4/ctime /usr/include/c++/4.4/cstddef \
+ /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
+ /usr/include/bits/stdio.h MJD.h /usr/include/c++/4.4/ctime \
+ /usr/include/c++/4.4/cstddef \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
@@ -624,7 +626,7 @@ ProgramMapSection.o: ProgramMapSection.cc /usr/include/assert.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/c++/4.4/iostream \
+ /usr/include/bits/stdio.h /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
@@ -698,7 +700,7 @@ ServiceDescriptionTable.o: ServiceDescriptionTable.cc \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/c++/4.4/iostream \
+ /usr/include/bits/stdio.h /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
@@ -772,14 +774,31 @@ StdLogger.o: StdLogger.cc /usr/include/stdio.h /usr/include/features.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/stdlib.h /usr/include/bits/waitflags.h \
- /usr/include/bits/waitstatus.h /usr/include/endian.h \
- /usr/include/bits/endian.h /usr/include/bits/byteswap.h \
- /usr/include/xlocale.h /usr/include/sys/types.h /usr/include/time.h \
- /usr/include/sys/select.h /usr/include/bits/select.h \
- /usr/include/bits/sigset.h /usr/include/bits/time.h \
- /usr/include/sys/sysmacros.h /usr/include/bits/pthreadtypes.h \
- /usr/include/alloca.h StdLogger.h Logger.h
+ /usr/include/bits/stdio.h /usr/include/stdlib.h \
+ /usr/include/bits/waitflags.h /usr/include/bits/waitstatus.h \
+ /usr/include/endian.h /usr/include/bits/endian.h \
+ /usr/include/bits/byteswap.h /usr/include/xlocale.h \
+ /usr/include/sys/types.h /usr/include/time.h /usr/include/sys/select.h \
+ /usr/include/bits/select.h /usr/include/bits/sigset.h \
+ /usr/include/bits/time.h /usr/include/sys/sysmacros.h \
+ /usr/include/bits/pthreadtypes.h /usr/include/alloca.h StdLogger.h \
+ Logger.h
+SystemClock.o: SystemClock.cc /usr/include/assert.h \
+ /usr/include/features.h /usr/include/bits/predefs.h \
+ /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h \
+ /usr/include/gnu/stubs.h /usr/include/gnu/stubs-32.h \
+ /usr/include/stdio.h /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stddef.h \
+ /usr/include/bits/types.h /usr/include/bits/typesizes.h \
+ /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
+ /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
+ /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
+ /usr/include/bits/stdio.h /usr/include/time.h /usr/include/bits/time.h \
+ /usr/include/xlocale.h SystemClock.h /usr/include/c++/4.4/ctime \
+ /usr/include/c++/4.4/cstddef \
+ /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
+ /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
+ /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h TSTypes.h \
+ /usr/include/stdint.h /usr/include/bits/wchar.h Logger.h
 Table.o: Table.cc /usr/include/assert.h /usr/include/features.h \
  /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
  /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
@@ -857,7 +876,7 @@ TimeDateSection.o: TimeDateSection.cc /usr/include/assert.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/c++/4.4/iostream \
+ /usr/include/bits/stdio.h /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
@@ -1001,7 +1020,8 @@ TransportStream.o: TransportStream.cc /usr/include/stdio.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/lib/gcc/i486-linux-gnu/4.4.5/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/assert.h TransportStream.h /usr/include/c++/4.4/iostream \
+ /usr/include/bits/stdio.h /usr/include/assert.h TransportStream.h \
+ /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++config.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/os_defines.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/cpu_defines.h \
@@ -1143,6 +1163,7 @@ ts_dump.o: ts_dump.cc /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/bits/codecvt.h /usr/include/c++/4.4/cstdio \
  /usr/include/libio.h /usr/include/_G_config.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
+ /usr/include/bits/stdio.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/basic_file.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++io.h \
  /usr/include/c++/4.4/bits/fstream.tcc /usr/include/stdlib.h \
@@ -1231,6 +1252,7 @@ tsfilter.o: tsfilter.cc /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/bits/codecvt.h /usr/include/c++/4.4/cstdio \
  /usr/include/libio.h /usr/include/_G_config.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
+ /usr/include/bits/stdio.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/basic_file.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++io.h \
  /usr/include/c++/4.4/bits/fstream.tcc /usr/include/stdlib.h \
@@ -1319,6 +1341,7 @@ tsinfo.o: tsinfo.cc /usr/include/c++/4.4/iostream \
  /usr/include/c++/4.4/bits/codecvt.h /usr/include/c++/4.4/cstdio \
  /usr/include/libio.h /usr/include/_G_config.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
+ /usr/include/bits/stdio.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/basic_file.h \
  /usr/include/c++/4.4/i486-linux-gnu/bits/c++io.h \
  /usr/include/c++/4.4/bits/fstream.tcc /usr/include/stdlib.h \

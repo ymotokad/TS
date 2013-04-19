@@ -109,7 +109,7 @@ uint8 BitStream::bit_field8(int pos) const {
    uint8 msb, lsb;
    msb = mydata->at(start / 8) & start_mask[start % 8];
    lsb = mydata->at(end / 8) & end_mask[end % 8];
-   //std::cout << "DEBUG - bit_hield8: msb=0x" << std::hex << (int)msb << ", lsb=" << (int)lsb << std::endl;
+   //std::cout << "DEBUG - bit_hield8: msb=0x" << std::hex << (int)msb << ", lsb=0x" << (int)lsb << std::endl;
    if (start / 8 == end / 8) {
       return (msb & lsb) >> (7 - (end % 8));
    }

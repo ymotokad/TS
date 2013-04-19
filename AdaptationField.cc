@@ -41,7 +41,7 @@ uint64 PCR::base() const {
    return bit_field64(PCR_program_clock_reference_base);
 }
 uint16 PCR::ext() const {
-   return bit_field64(PCR_program_clock_reference_extension);
+   return bit_field16(PCR_program_clock_reference_extension);
 }
 int PCR::length() const {
    return sizeofBufferBefore(PCR_END_OF_DATA);
@@ -91,12 +91,11 @@ void AdaptationField::load() {
       int buflen = bufferLength();
       int asize = pcr.length();
       int off = sizeofBufferBefore(AdaptationField_adaptation_field_extension_flag + 1);
-      if (buflen >= off + asize) {
-	 pcr.setBuffer(*this, off);
-	 PCR_available = true;
-	 base = pcr.base();
-	 ext = pcr.ext();
-      }
+      assert(buflen >= off + asize);
+      pcr.setBuffer(*this, off);
+      base = pcr.base();
+      ext = pcr.ext();
+      PCR_available = true;
    }
    loaded = true;
 }
@@ -108,7 +107,8 @@ void AdaptationField::dump(std::ostream *osp) const {
 
    if (hasLoaded() && hasCompletePCR()) {
       char buf[20];
-      printf("     PCR: %s\n", SystemClock_toString(buf, getBase()));
+      ProgramClock pcr(getBase(), getExt());
+      printf("     PCR: %s, 0x%09llx.0x%04x\n", pcr.toString(buf), getBase(), getExt());
    }
    
    hexdump(4, osp);
