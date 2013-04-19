@@ -50,5 +50,6 @@ typedef uint8_t uint8;		// 8bit unsigned integer
 typedef uint16_t uint16;	// 16bit unsigned integer
 typedef uint32_t uint32;	// 32bit unsigned integer
 typedef uint64_t uint64;	// 64bit unsigned integer
+typedef int64_t int64;		// 64bit signed integer
 
 #endif /* TSTYPES_H */
