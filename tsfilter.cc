@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include "TransportStream.h"
+#include "MPEGStream.h"
 #include "StdLogger.h"
 #include "Spool.h"
 
@@ -16,7 +17,6 @@ static char rcsid[] = "@(#)$Id$";
 Logger *logger;
 
 #define MAX_PACKETS_WITHOUT_PCR		10000
-#define PACKETS_TO_SKIP_AFTER_FLUSH	1000
 
 static void usage(const char *argv0) {
    std::cerr << "usage: " << argv0 << " [options]" << " -i input.ts -o output.ts" << std::endl;
@@ -25,6 +25,7 @@ static void usage(const char *argv0) {
    std::cerr << "   -d            print debug information" << std::endl;
    std::cerr << "   -p program_id add specified program to output stream" << std::endl;
    std::cerr << "   -e            add EIT/SDT to output stream" << std::endl;
+   std::cerr << "   -g            sybchronize with GOP at begining" << std::endl;
    std::cerr << "   -k N          probe leading N packets and skip until begining of the program, which is judged by Program Map Table change" << std::endl;
    std::cerr << "   -s seconds    skip begining packets for specified seconds" << std::endl;
    std::cerr << "   -t seconds    stop after writing specified seconds of packets to output stream" << std::endl;
@@ -65,14 +66,97 @@ void ActivePID::reset() {
 }
 
 /*
+ * Managing PID to PES
+ */
+typedef std::map<uint16, PacketizedElementaryStream *, std::less<int> > PID2PESMap;
+class PESManager {
+public:
+   ~PESManager() {
+      for (PID2PESMap::iterator itr = pess.begin(); itr != pess.end(); itr++) {
+	 delete itr->second;
+      }
+   }
+   void setPES(uint16 pid, PacketizedElementaryStream *pes) {
+      pess[pid] = pes;
+   }
+   PacketizedElementaryStream *getPES(uint16 pid) {
+      PID2PESMap::const_iterator itr = pess.find(pid);
+      if (itr == pess.end()) return NULL;
+      return itr->second;
+   }
+private:
+   PID2PESMap pess;
+};
+
+/*
  * Callback function for PMT parse
  */
-void RegisterPIDFromPMT(uint16 pid, uint16 program, const char *tagstr, uint8 component_tag, void *dtp) {
+void RegisterPIDFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
    ActivePID *pids = (ActivePID *)dtp;
    pids->activate(pid);
 }
+void MapPESFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+   PESManager *pm = (PESManager *)dtp;
+   if (sttype == ProgramMapSection::sttype_VideoMPEG2) {
+      if (pm->getPES(pid) == NULL) {
+	 pm->setPES(pid, new MPEGStream());
+      }
+   }
+}
 
 typedef Spool<ByteArray> ByteArraySpool;
+
+/*
+ * Writer Status
+ */
+class WriterStatus {
+public:
+   WriterStatus() {
+      status = InitialStatus;
+   }
+   bool is(int sts) const {
+      return status & sts;
+   }
+
+   void skipLeadingPacket() {
+      status = SkippingLeadingPackets;
+   }
+   void waitForPMT() {
+      status = WaitingForPMT;
+   }
+   void skipHasCompleted(bool opt_g) {
+      if (opt_g) status = WaitingForGOP;
+      else status = Writing;
+   }
+   void PMTHasFound(bool opt_g) {
+      if (opt_g) status = WaitingForGOP;
+      else status = Writing;
+   }
+   void waitForGOP() {
+      status = WaitingForGOP;
+   }
+   void startWriting() {
+      status = Writing;
+   }
+   void startTimedWriting() {
+      status = WritingByTime;
+   }
+   void stopWriting() {
+      status = WritingCompleted;
+   }
+
+   static const int InitialStatus		= (1 << 0);
+   static const int SkippingLeadingPackets	= (1 << 1);
+   static const int WaitingForPMT		= (1 << 2);
+   static const int WaitingForGOP		= (1 << 3);
+   static const int Writing			= (1 << 4);
+   static const int WritingByTime		= (1 << 5);
+   static const int WritingCompleted		= (1 << 6);
+
+protected:
+   int status;
+};
+
 
 /*
  * main
@@ -84,6 +168,7 @@ int main(int argc, char *argv[]) {
    bool opt_d = false;
    bool opt_s = false;
    bool opt_e = false;
+   bool opt_g = false;
    char *opt_i = NULL;
    char *opt_o = NULL;
    int program_id = -1;
@@ -94,7 +179,7 @@ int main(int argc, char *argv[]) {
 
    // Parse command line options.
    int option_char;
-   while ((option_char = getopt(argc, argv, "vdi:o:p:ek:s:t:")) != -1) {
+   while ((option_char = getopt(argc, argv, "vdi:o:p:egk:s:t:")) != -1) {
       switch (option_char) {
       case 'v':
 	 opt_v = true;
@@ -104,6 +189,9 @@ int main(int argc, char *argv[]) {
 	 break;
       case 'e':
 	 opt_e = true;
+	 break;
+      case 'g':
+	 opt_g = true;
 	 break;
       case 'i':
 	 opt_i = optarg;
@@ -136,9 +224,20 @@ int main(int argc, char *argv[]) {
       usage(argv0);
       return 1;
    }
-   if ((seconds_to_skip > 0 || seconds_to_record > 0) && probe_size > 0) {
-      std::cerr << argv0 << ": -k cannot be combined with -s or -t" << std::endl;
+   if (seconds_to_skip > 0 && probe_size > 0) {
+      std::cerr << argv0 << ": -k cannot be combined with -s" << std::endl;
       return 1;
+   }
+   
+   WriterStatus writer_status;
+   if (seconds_to_skip > 0) {
+      writer_status.skipLeadingPacket();
+   } else if (probe_size > 0) {
+      writer_status.waitForPMT();
+   } else if (opt_g) {
+      writer_status.waitForGOP();
+   } else {
+      writer_status.startWriting();
    }
 
    int logmode = LOGGER_ERROR | LOGGER_WARNING;
@@ -187,9 +286,9 @@ int main(int argc, char *argv[]) {
       }
 
       int packet_counter = 0;
-      int packets_to_skip = 0;
       const ProgramClock *skip_until = NULL;
       ProgramClock *record_until = NULL;
+      PESManager pes_manager;
       
       while (!bisp->eof()) {
 
@@ -204,10 +303,37 @@ int main(int argc, char *argv[]) {
 	 }
 
 	 if (ts.packet) {
+	    if (writer_status.is(WriterStatus::WaitingForGOP)) {
+	       /*----------------------------
+		* Decode PES
+		*/
+	       PacketizedElementaryStream *pes = pes_manager.getPES(ts.packet->PID());
+	       if (pes != NULL && ts.packet->has_payload()) {
+		  pes->put(ts.packet->getPayload());
+		  MPEGHeader *obj;
+		  while ((obj = pes->readObject()) != NULL) {
+		     if (writer_status.is(WriterStatus::WaitingForGOP)) {
+			uint8 c = obj->start_code();
+			if (c == MPEGStream::StartCode_GroupOfPictures) {
+			   if (seconds_to_record > 0) {
+			      writer_status.startTimedWriting();
+			   } else {
+			      writer_status.startWriting();
+			   }
+			   break;
+			}
+		     } else {
+			// Just discard it
+		     }
+		     //MPEGStream::dumpHeader(obj);
+		     delete obj;
+		  }
+	       }
+	    }
+
 	    /*----------------------------
 	     * Filterings
 	     */
-
 	    if (program_id >= 0) {
 	       if (ts.isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
 		  ProgramAssociationSection *pat = ts.getLatestPAT();
@@ -230,15 +356,17 @@ int main(int argc, char *argv[]) {
 			assert(pmt->isComplete());
 			pidFilter.activate(pmt->PCR_PID());
 			pmt->for_all_streams(RegisterPIDFromPMT, &pidFilter);
+
+			pmt->for_all_streams(MapPESFromPMT, &pes_manager);
 		     }
 		  }
 	       }
 	    }
 
 	    /*----------------------------
-	     * Skip?
+	     * Skip Leading Packets?
 	     */
-	    if (seconds_to_skip != 0) {
+	    if (writer_status.is(WriterStatus::SkippingLeadingPackets)) {
 	       const ProgramClock *now = ts.getStreamTime();
 	       if (skip_until == NULL) {
 		  if (now->isInitialized()) {
@@ -260,13 +388,17 @@ int main(int argc, char *argv[]) {
 		     packet_counter++;
 		     continue;
 		  } else {
-		     seconds_to_skip = 0;
 		     delete skip_until;
 		     skip_until = NULL;
+		     writer_status.skipHasCompleted(opt_g);
 		  }
 	       }
 	    }
-	    if (seconds_to_record != 0) {
+	    /*----------------------------
+	     * Check Write Timer
+	     */
+	    if (writer_status.is(WriterStatus::WritingByTime)) {
+	       assert(seconds_to_record != 0);
 	       const ProgramClock *now = ts.getStreamTime();
 	       if (record_until == NULL) {
 		  if (now->isInitialized()) {
@@ -278,50 +410,47 @@ int main(int argc, char *argv[]) {
 			return 1;
 		     }
 		  }
-		  packet_counter++;
-		  continue;
 	       } else {
 		  if (!record_until->isGreaterThanOrEqualTo(*now)) {
-		     seconds_to_record = 0;
 		     delete record_until;
 		     record_until = NULL;
+		     writer_status.stopWriting();
 		     break;
 		  }
 	       }
 	    }
 
 	    /*----------------------------
+	     * Spool
+	     */
+	    if (writer_status.is(WriterStatus::WaitingForPMT)) {
+	       if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable | TSEvent_Update_EventInformationTable_Actual_Present)) {
+		  spool->flush();
+	       } else {
+		  if (spool->length() < probe_size) {
+		     spool->append(*(ts.packet->getRawdata()));
+		  } else {
+		     // spool is full. push all the data in the spool back into input stream and stop spooling
+		     for (int i = probe_size - 1; i >= 0; i--) {
+			const ByteArray *rawdata = spool->dataAt(i);
+			bisp->unread(*rawdata);
+			//assert(rawdata->length() == SIZEOF_PACKET);
+			//ofs.write((const char *)rawdata->part(), rawdata->length());
+		     }
+		     delete spool;
+		     spool = NULL;
+		     ts.reset();
+		     writer_status.PMTHasFound(opt_g);
+		  }
+	       }
+	    }
+	    
+	    /*----------------------------
 	     * Write output stream
 	     */
-	    if (pidFilter.isActive(ts.packet->PID())) {
-	       if (spool) {
-		  if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable | TSEvent_Update_EventInformationTable_Actual_Present)) {
-		     spool->flush();
-		     packets_to_skip = PACKETS_TO_SKIP_AFTER_FLUSH;
-		  }
-
-		  if (packets_to_skip > 0) {
-		     packets_to_skip--;
-		  } else {
-		     if (spool->length() < probe_size) {
-			spool->append(*(ts.packet->getRawdata()));
-		     } else {
-			// spool is full. write all the data in the spool and stop spooling
-			for (int i = 0; i < probe_size; i++) {
-			   const ByteArray *rawdata = spool->dataAt(i);
-			   assert(rawdata->length() == SIZEOF_PACKET);
-			   ofs.write((const char *)rawdata->part(), rawdata->length());
-			}
-			delete spool;
-			spool = NULL;
-		  
-			const ByteArray *rawdata = ts.packet->getRawdata();
-			assert(rawdata->length() == SIZEOF_PACKET);
-			ofs.write((const char *)rawdata->part(), rawdata->length());
-		     }
-		  }
-	       } else {
-		  assert(packets_to_skip == 0);
+	    if (writer_status.is(WriterStatus::Writing |
+				 WriterStatus::WritingByTime)) {
+	       if (pidFilter.isActive(ts.packet->PID())) {
 		  const ByteArray *rawdata = ts.packet->getRawdata();
 		  assert(rawdata->length() == SIZEOF_PACKET);
 		  ofs.write((const char *)rawdata->part(), rawdata->length());

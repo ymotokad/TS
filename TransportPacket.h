@@ -19,7 +19,7 @@ class AdaptationField;
 class TransportPacket : public BitStream {
  public:
    TransportPacket();
-   TransportPacket(ByteArrayBuffer *rawdata);
+   TransportPacket(ByteArray *rawdata);
    virtual ~TransportPacket();
    int write(std::ostream *osp) const;
    const ByteArray *getRawdata() const;

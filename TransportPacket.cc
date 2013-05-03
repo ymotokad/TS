@@ -48,7 +48,7 @@ void TransportPacket::initvars() {
    payload = NULL;
 }
 
-TransportPacket::TransportPacket(ByteArrayBuffer *buffer) {
+TransportPacket::TransportPacket(ByteArray *buffer) {
    initobj();
    initvars();
 

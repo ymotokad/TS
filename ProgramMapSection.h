@@ -9,7 +9,7 @@ static const char *rcsid_ProgramMapSection = "@(#)$Id$";
 #include "Table.h"
 #include "ProgramAssociationSection.h"
 
-typedef void (*StreamCallback)(uint16 pid, uint16 program, const char *tagstr, uint8 component_tag, void *dtp);
+typedef void (*StreamCallback)(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp);
 
 class ProgramMapSection : public Section {
  public:
@@ -26,6 +26,10 @@ class ProgramMapSection : public Section {
    uint16 program_number() const;
    int program_info_length() const;
 
+   static const int sttype_VideoMPEG2			= 2;
+   static const int sttype_AudioAAC			= 15;
+   static const int sttype_AudioAACForMPEG4		= 17;
+
 protected:
    // Order of bit stream data
    static const int pos_program_number			= 4;
@@ -39,7 +43,6 @@ protected:
    static const int pos_reserved4			= 12;
    static const int pos_program_info_length		= 13;
    static const int pos_START_PROGRAM_DATA		= 14;
-
  protected:
    void initobj();
 };

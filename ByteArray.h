@@ -29,11 +29,12 @@ public:
    virtual ~ByteArray();
 
    uint8 at(int idx) const; // ByteArrayOverflowException
-   ByteArray *subarray(int idx, int len = -1) const;
+   ByteArray *subarray(int idx, int len = -1) const; // Caller is responsible to delete returned object
    const uint8 *part(int idx = 0, int len = -1) const; // ByteArrayOverflowException
 
    bool isEmpty() const;
    int length() const;
+   void hexdump(int indent, std::ostream *osp, int offset = 0, int len = -1) const;
 
 protected:
    ByteArray();

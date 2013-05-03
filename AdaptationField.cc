@@ -91,11 +91,13 @@ void AdaptationField::load() {
       int buflen = bufferLength();
       int asize = pcr.length();
       int off = sizeofBufferBefore(AdaptationField_adaptation_field_extension_flag + 1);
-      assert(buflen >= off + asize);
-      pcr.setBuffer(*this, off);
-      base = pcr.base();
-      ext = pcr.ext();
-      PCR_available = true;
+      if (buflen >= off + asize) {
+	 //assert(buflen >= off + asize);
+	 pcr.setBuffer(*this, off);
+	 base = pcr.base();
+	 ext = pcr.ext();
+	 PCR_available = true;
+      }
    }
    loaded = true;
 }

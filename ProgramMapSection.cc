@@ -228,7 +228,7 @@ void ProgramMapSection::for_all_streams(StreamCallback scp, void *dtp) const {
 	    }
 	    idx += len;
 	 }
-	 (*scp)(elmpid, program_number(), stream_type(sttype), component_tag, dtp);
+	 (*scp)(elmpid, program_number(), sttype, component_tag, dtp);
       }
    } catch (ByteArrayOverflowException e) {
       logger->error("buffer underflow!!");

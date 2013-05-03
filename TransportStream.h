@@ -10,6 +10,7 @@ static const char *rcsid_TransportStream = "@(#)$Id$";
 #include <vector>
 #include <map>
 #include <ctime>
+#include <list>
 #include "TSTypes.h"
 #include "Table.h"
 #include "TransportPacket.h"
@@ -17,6 +18,9 @@ static const char *rcsid_TransportStream = "@(#)$Id$";
 #include "ProgramMapSection.h"
 #include "EventInformationTable.h"
 #include "SystemClock.h"
+
+
+typedef std::vector<ByteArray *> ByteArrayList;
 
 typedef std::map<uint16, Section*, std::less<uint16> > Pid2SectionMap;
 
@@ -37,16 +41,16 @@ typedef uint32 TSEvent;
 class BufferedInputStream {
 public:
    BufferedInputStream(std::istream *isp);
-   ByteArrayBuffer *read(int len);
+   ByteArray *read(int len);
    void unread(const ByteArray &buff);
    bool eof() const;
 private:
    std::istream *isp;
-   ByteArrayBuffer *bufferUnread;
+   ByteArrayList bufferUnread;
    int idxUnread;
 };
 inline bool BufferedInputStream::eof() const {
-   if (bufferUnread) return false;
+   if (bufferUnread.size() > 0) return false;
    return isp->eof();
 }
 
@@ -121,6 +125,7 @@ class TransportStream {
    Pid2SectionMap incompleteSections;
    void setIncompleteSection(uint16 pid, Section *sec);
    void unsetIncompleteSection(uint16 pid);
+   void clearIncompleteSection();
    Section *getIncompleteSection(uint16 pid) const;
 };
 

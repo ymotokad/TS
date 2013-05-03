@@ -130,11 +130,9 @@ private:
  */
 class Stream {
 public:
-   Stream(const char *tag, uint8 component_tag) {
-      tagstr = tag;
+   Stream(uint8 component_tag) {
       this->component_tag = component_tag;
    }
-   const char *tagstr;
    uint8 component_tag;
 };
 
@@ -149,9 +147,9 @@ public:
 	 delete streams[i];
       }
    }
-   void addStream(const char *tag, uint8 component_tag) {
+   void addStream(uint8 component_tag) {
       if (num_streams < MAX_STREAMS) {
-	 streams[num_streams++] = new Stream(tag, component_tag);
+	 streams[num_streams++] = new Stream(component_tag);
       }
    }
    int length() { return num_streams; }
@@ -215,13 +213,13 @@ private:
 /*
  * Callback functions
  */
-void setProgramInfo(uint16 pid, uint16 program, const char *tagstr, uint8 component_tag, void *dtp) {
+void setProgramInfo(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
    PIDManager *pidmgr = (PIDManager *)dtp;
    pidmgr->setProgramByPID(pid, program);
 }
-void setProgramStream(uint16 pid, uint16 program, const char *tagstr, uint8 component_tag, void *dtp) {
+void setProgramStream(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
    ProgramInfo *pi = (ProgramInfo *)dtp;
-   pi->addStream(tagstr, component_tag);
+   pi->addStream(component_tag);
 }
 void setProgramComponents(uint16 program, const char *str, uint8 component_tag, void *dtp) {
    ComponentInfo *cip = (ComponentInfo *)dtp;

@@ -54,22 +54,29 @@ TransportStream::~TransportStream() {
 
 void TransportStream::reset() {
    clearProgramMapTables();
+
    latestEventInformationVersionByProgram.clear();
+
    if (latestEventInformationTabale_Actual_Present != NULL) {
       delete latestEventInformationTabale_Actual_Present;
       latestEventInformationTabale_Actual_Present = NULL;
    }
+
    if (latestProgramAssociationTable != NULL) {
       delete latestProgramAssociationTable;
       latestProgramAssociationTable = NULL;
    }
+
+   clearIncompleteSection();
+
+   packet_counter = 0;
 }
 
 
 #define NUM_BYTES_LOOK_FORWARD		(SIZEOF_PACKET * 3)
 #define NUM_PACKETS_MATCH		4
-static ByteArrayBuffer *find_packet(BufferedInputStream *isp) {
-   ByteArrayBuffer *buff = isp->read(NUM_BYTES_LOOK_FORWARD + (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1)));
+static ByteArray *find_packet(BufferedInputStream *isp) {
+   ByteArray *buff = isp->read(NUM_BYTES_LOOK_FORWARD + (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1)));
    if (buff == NULL) return NULL;
    if (buff->length() != NUM_BYTES_LOOK_FORWARD + (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1))) {
       logger->warning("find_packet: Tried to read %d bytes, but actually read %d bytes", NUM_BYTES_LOOK_FORWARD + (SIZEOF_PACKET * (NUM_PACKETS_MATCH + 1)), buff->length());
@@ -111,7 +118,7 @@ int TransportStream::decode(BufferedInputStream *isp) {
    }
    packet_counter++;
    
-   ByteArrayBuffer *buffer = isp->read(SIZEOF_PACKET);
+   ByteArray *buffer = isp->read(SIZEOF_PACKET);
    if (isp->eof()) return 0;
    packet = new TransportPacket(buffer);
    if (packet->sync_byte() != SYNC_BYTE_VALUE) {
@@ -284,6 +291,14 @@ void TransportStream::unsetIncompleteSection(uint16 pid) {
    if (itr != incompleteSections.end()) {
       incompleteSections.erase(itr);
    }
+}
+
+void TransportStream::clearIncompleteSection() {
+   Pid2SectionMap::iterator itr = incompleteSections.begin();
+   if (itr != incompleteSections.end()) {
+      delete itr->second;
+   }
+   incompleteSections.clear();
 }
 
 Section *TransportStream::getIncompleteSection(uint16 pid) const {
@@ -528,55 +543,47 @@ ProgramAssociationSection *TransportStream::getLatestPAT() const {
 BufferedInputStream::BufferedInputStream(std::istream *p) {
    isp = p;
    idxUnread = 0;
-   bufferUnread = NULL;
 }
 
-ByteArrayBuffer *BufferedInputStream::read(int len) {
-   ByteArrayBuffer *buff = NULL;
-   int nRead = 0;
-   if (bufferUnread) {
-      assert(idxUnread < bufferUnread->length());
-      nRead = len;
-      if (nRead > (bufferUnread->length() - idxUnread)) {
-	 nRead = bufferUnread->length() - idxUnread;
+ByteArray *BufferedInputStream::read(int len) {
+   ByteArrayBuffer *buff = new ByteArrayBuffer(len, 1024);
+   while (len > 0) {
+      if (bufferUnread.empty()) break;
+      ByteArray *p = bufferUnread.back();
+      bufferUnread.pop_back();
+      if (p->length() == len && buff->length() == 0) {
+	 delete buff;
+	 return p;
       }
-      buff = new ByteArrayBuffer(bufferUnread->part(idxUnread, nRead), nRead);
-      idxUnread += nRead;
-      if (idxUnread == bufferUnread->length()) {
-	 delete bufferUnread;
-	 bufferUnread = NULL;
+      if (p->length() > len) {
+	 buff->append(p->part(0, len), len);
+	 bufferUnread.push_back(p->subarray(len));
+	 len = 0;
+      } else {
+	 int n = p->length();
+	 buff->append(p->part(0, n), n);
+	 len -= n;
       }
+      delete p;
    }
-   if (nRead < len) {
-      uint8 room[len - nRead];
-      while (nRead < len) {
-	 isp->read((char *)room, len - nRead);
+
+   if (len > 0) {
+      uint8 room[len];
+      while (len > 0) {
+	 isp->read((char *)room, len);
 	 int n = isp->gcount();
 	 if (n <= 0) {
 	    //logger->warning("BufferedInputStream::read(%d): gcount() returns 0. rdstate=0x%08x (fail:0x%x, eof:0x%x, bad:0x%x)", len, isp->rdstate(), isp->failbit, isp->eofbit, isp->badbit);
 	    assert(isp->eof() || isp->fail());
 	    return buff;
 	 }
-	 if (!buff) {
-	    assert(nRead == 0);
-	    buff = new ByteArrayBuffer(room, n);
-	 } else {
-	    buff->append(room, n);
-	 }
-	 //if (nRead + n < len) logger->warning("BufferedInputStream::read(%d): Tried to read %d bytes, but read only %d bytes this time, and %d bytes so far.", len, len - nRead, n, nRead + n);
-	 nRead += n;
+	 buff->append(room, n);
+	 len -= n;
       }
-   } else {
-      assert(nRead == len);
    }
    return buff;
 }
 
 void BufferedInputStream::unread(const ByteArray &buff) {
-   if (bufferUnread) {
-      bufferUnread->append(buff);
-   } else {
-      bufferUnread = new ByteArrayBuffer(buff);
-      idxUnread = 0;
-   }
+   bufferUnread.push_back(new ByteArray(buff));
 }

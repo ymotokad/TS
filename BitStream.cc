@@ -203,42 +203,6 @@ int BitStream::append(const ByteArray &src, int off, int len) {
 }
 
 void BitStream::dump(std::ostream *osp) const {
-   hexdump(2, osp, *mydata, -1);
+   mydata->hexdump(2, osp, -1);
 }
 
-
-void BitStream::hexdump(int indent, std::ostream *osp, const ByteArray &buf, int offset, int len) {
-   static const int bpl = 16;
-   bool needEndl = false;
-
-   *osp << std::hex;
-   osp->unsetf(std::ios::showbase);
-   if (len == -1 || offset + len > buf.length()) len = buf.length() - offset;
-   for (int cnt = 0; cnt < len; cnt++) {
-      if ((cnt % bpl) == 0) {
-	 for (int i = 0; i < indent; i++) {
-	    *osp << " ";
-	 }
-	 osp->width(2);
-	 osp->fill('0');
-	 *osp << cnt << ":";
-      }
-      if ((cnt % (bpl / 2)) == 0 && (cnt % bpl) != 0 ) {
-	 *osp << " - ";
-      } else {
-	 *osp << " ";
-      }
-      osp->width(2);
-      osp->fill('0');
-      *osp << (unsigned int)buf.at(offset + cnt);
-      if ((cnt % bpl) == bpl - 1) {
-	 *osp << std::endl;
-	 needEndl = false;
-      } else {
-	 needEndl = true;
-      }
-   }
-   if (needEndl) {
-      *osp << std::endl;
-   }
-}

@@ -7,6 +7,7 @@
 static const char *rcsid_BitStream = "@(#)$Id$";
 #endif /* IMPLEMENTING_BITSTREAM */
 #include <iostream>
+#include <stdio.h>
 #include "TSTypes.h"
 #include "ByteArrayBuffer.h"
 
@@ -25,6 +26,7 @@ class BitStream {
    bool bufferAllocated() const; // primary for debugging
    void dumpBitDistance(int len); // for debugging
    void hexdump(int indent, std::ostream *osp, int offset = 0, int len = -1) const;
+   //static void hexdump(int indent, std::ostream *osp, const ByteArray &buff, int offset = 0, int len = -1);
    
  protected:
    const ByteArray *mydata;
@@ -36,8 +38,6 @@ class BitStream {
    uint16 bit_field16(int position) const;
    uint32 bit_field32(int position) const;
    uint64 bit_field64(int position) const;
-
-   static void hexdump(int indent, std::ostream *osp, const ByteArray &buff, int offset = 0, int len = -1);
 
    static void initializeBitDistance(const int *the_field_width, int length, int *bit_distance);
    void setBitDistance(const int *bit_distance);
@@ -64,7 +64,7 @@ inline bool BitStream::bufferAllocated() const {
 }
 
 inline void BitStream::hexdump(int indent, std::ostream *osp, int offset, int len) const {
-   hexdump(indent, osp, *mydata, offset, len);
+   mydata->hexdump(indent, osp, offset, len);
 }
 
 /*
@@ -82,11 +82,11 @@ inline void BitStream::hexdump(int indent, std::ostream *osp, int offset, int le
 #define FIELDWIDTH_POSTAMBLE(cname, initfunc) \
       }; \
       static int *the_bit_distance = NULL;				\
-      /* printf("%s::initobj(): _nullobj=0x%lx, this=0x%lx\n", #cname, (unsigned long)&cname##_nullobj, (unsigned long)this); */  \
+   /* printf("%s::initobj(): _nullobj=0x%lx, this=0x%lx\n", #cname, (unsigned long)&cname##_nullobj, (unsigned long)this); */\
       if (this == &cname##_nullobj) {\
          int len = sizeof(the_field_width) / sizeof(the_field_width[0]);\
          the_bit_distance = new int[len + 1];\
-	 /* printf("%s::initobj(): len=%d\n", #cname, len); */		\
+	 /* printf("%s::initobj(): len=%d\n", #cname, len); */\
          initializeBitDistance(the_field_width, len, the_bit_distance);\
       }\
       /* assert(the_bit_distance != NULL);*/	\
