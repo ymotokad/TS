@@ -19,7 +19,7 @@ static char rcsid[] = "@(#)$Id$";
 ByteArray::ByteArray(const ByteArray& src) : room(src.room) {
    src.room->incr_refcnt();
    tail = src.length();
-   offset = 0;
+   offset = src.offset;
 }
 
 ByteArray::ByteArray(const uint8 *src, int length) {
@@ -82,4 +82,40 @@ ByteArray::part(int idx, int len) const {
       throw e;
    }
    return room->buffer() + idx;
+}
+
+void ByteArray::hexdump(int indent, std::ostream *osp, int offset, int len) const {
+   static const int bpl = 16;
+   bool needEndl = false;
+
+   *osp << std::hex;
+   osp->unsetf(std::ios::showbase);
+   if (len == -1 || offset + len > this->length()) len = this->length() - offset;
+   for (int cnt = 0; cnt < len; cnt++) {
+      if ((cnt % bpl) == 0) {
+	 for (int i = 0; i < indent; i++) {
+	    *osp << " ";
+	 }
+	 osp->width(2);
+	 osp->fill('0');
+	 *osp << cnt << ":";
+      }
+      if ((cnt % (bpl / 2)) == 0 && (cnt % bpl) != 0 ) {
+	 *osp << " - ";
+      } else {
+	 *osp << " ";
+      }
+      osp->width(2);
+      osp->fill('0');
+      *osp << (unsigned int)this->at(offset + cnt);
+      if ((cnt % bpl) == bpl - 1) {
+	 *osp << std::endl;
+	 needEndl = false;
+      } else {
+	 needEndl = true;
+      }
+   }
+   if (needEndl) {
+      *osp << std::endl;
+   }
 }
