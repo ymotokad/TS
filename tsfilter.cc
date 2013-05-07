@@ -76,6 +76,12 @@ public:
 	 delete itr->second;
       }
    }
+   void clear() {
+      for (PID2PESMap::iterator itr = pess.begin(); itr != pess.end(); itr++) {
+	 delete itr->second;
+      }
+      pess.clear();
+   }
    void setPES(uint16 pid, PacketizedElementaryStream *pes) {
       pess[pid] = pes;
    }
@@ -124,12 +130,14 @@ public:
    void waitForPMT() {
       status = WaitingForPMT;
    }
-   void skipHasCompleted(bool opt_g) {
+   void skipHasCompleted(bool opt_g, int seconds_to_record) {
       if (opt_g) status = WaitingForGOP;
+      else if (seconds_to_record > 0) status = WritingByTime;
       else status = Writing;
    }
-   void PMTHasFound(bool opt_g) {
+   void PMTHasFound(bool opt_g, int seconds_to_record) {
       if (opt_g) status = WaitingForGOP;
+      else if (seconds_to_record > 0) status = WritingByTime;
       else status = Writing;
    }
    void waitForGOP() {
@@ -236,6 +244,8 @@ int main(int argc, char *argv[]) {
       writer_status.waitForPMT();
    } else if (opt_g) {
       writer_status.waitForGOP();
+   } else if (seconds_to_record > 0) {
+      writer_status.startTimedWriting();
    } else {
       writer_status.startWriting();
    }
@@ -356,7 +366,6 @@ int main(int argc, char *argv[]) {
 			assert(pmt->isComplete());
 			pidFilter.activate(pmt->PCR_PID());
 			pmt->for_all_streams(RegisterPIDFromPMT, &pidFilter);
-
 			pmt->for_all_streams(MapPESFromPMT, &pes_manager);
 		     }
 		  }
@@ -390,7 +399,7 @@ int main(int argc, char *argv[]) {
 		  } else {
 		     delete skip_until;
 		     skip_until = NULL;
-		     writer_status.skipHasCompleted(opt_g);
+		     writer_status.skipHasCompleted(opt_g, seconds_to_record);
 		  }
 	       }
 	    }
@@ -440,7 +449,7 @@ int main(int argc, char *argv[]) {
 		     delete spool;
 		     spool = NULL;
 		     ts.reset();
-		     writer_status.PMTHasFound(opt_g);
+		     writer_status.PMTHasFound(opt_g, seconds_to_record);
 		  }
 	       }
 	    }
