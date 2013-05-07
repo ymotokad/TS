@@ -416,6 +416,7 @@ void TransportStream::loadEventInformationTable(const Section &section) {
    if (!(TableID_EventInformationTable_Actual_Present <= eit->table_id() &&
 	 eit->table_id() <= TableID_EventInformationTable_max)) {
       logger->warning("EventInformationTable: inappropriate table_id: 0x%x", eit->table_id());
+      delete eit;
       return;
    }
 
@@ -444,7 +445,10 @@ void TransportStream::loadEventInformationTable(const Section &section) {
 	    eit->dump(&std::cout);
 	 }
       }
+   } else {
+      delete eit;
    }
+   
 }
 
 

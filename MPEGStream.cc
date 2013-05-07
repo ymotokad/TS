@@ -64,6 +64,7 @@ void MPEGStream::put(const ByteArray *packet) {
       delete carryover;
       carryover = new ByteArrayBuffer(*p);
       //printf("DBG: MPEGStream::put() exit, carryover->length()=0x%x\n", carryover->length());
+      delete p;
    } else {
       delete carryover;
       carryover = NULL;
