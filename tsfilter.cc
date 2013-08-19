@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include "TransportStream.h"
 #include "MPEGStream.h"
+#include "ADTSStream.h"
 #include "StdLogger.h"
 #include "Spool.h"
 
@@ -106,6 +107,10 @@ void MapPESFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag
    if (sttype == ProgramMapSection::sttype_VideoMPEG2) {
       if (pm->getPES(pid) == NULL) {
 	 pm->setPES(pid, new MPEGStream());
+      }
+   } else if (sttype == ProgramMapSection::sttype_AudioAAC) {
+      if (pm->getPES(pid) == NULL) {
+	 pm->setPES(pid, new ADTSStream());
       }
    }
 }
@@ -320,22 +325,28 @@ int main(int argc, char *argv[]) {
 	       PacketizedElementaryStream *pes = pes_manager.getPES(ts.packet->PID());
 	       if (pes != NULL && ts.packet->has_payload()) {
 		  pes->put(ts.packet->getPayload());
-		  MPEGHeader *obj;
+		  ElementaryStream *obj;
 		  while ((obj = pes->readObject()) != NULL) {
-		     if (writer_status.is(WriterStatus::WaitingForGOP)) {
-			uint8 c = obj->start_code();
-			if (c == MPEGStream::StartCode_GroupOfPictures) {
-			   if (seconds_to_record > 0) {
-			      writer_status.startTimedWriting();
-			   } else {
-			      writer_status.startWriting();
+		     if (obj->getStreamType() == obj->StreamType_MPEG) {
+			MPEGHeader *mpeg = (MPEGHeader *)obj;
+			if (writer_status.is(WriterStatus::WaitingForGOP)) {
+			   uint8 c = mpeg->start_code();
+			   if (c == MPEGStream::StartCode_GroupOfPictures) {
+			      if (seconds_to_record > 0) {
+				 writer_status.startTimedWriting();
+			      } else {
+				 writer_status.startWriting();
+			      }
+			      break;
 			   }
-			   break;
+			} else {
+			   // Just discard it
 			}
-		     } else {
-			// Just discard it
+			//MPEGStream::dumpHeader(mpeg);
+		     } else if (obj->getStreamType() == obj->StreamType_ADTS) {
+			ADTSHeader *adts = (ADTSHeader *)obj;
+			printf("DBGPES: adts sync=0x%04x\n", adts->sync_word());
 		     }
-		     //MPEGStream::dumpHeader(obj);
 		     delete obj;
 		  }
 	       }
