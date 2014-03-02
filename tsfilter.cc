@@ -35,35 +35,52 @@ static void usage(const char *argv0) {
 /*
  * Managing active PIDs
  */
-typedef std::map<uint16, int, std::less<int> > PIDMap;
+#define ACTIVEPID_SHIFT		(3)
+#define ACTIVEPID_BITSPERBYTE	(1 << ACTIVEPID_SHIFT) // 8
+#define ACTIVEPID_NUM_PID	(0x10000)
+#define ACTIVEPID_SZ		(ACTIVEPID_NUM_PID / ACTIVEPID_BITSPERBYTE)
+typedef uint8 PIDMap[ACTIVEPID_SZ];
 class ActivePID {
 public:
+   ActivePID();
    bool isActive(uint16 pid) const;
    void activate(uint16 pid);
    void deactivate(uint16 pid);
    void reset();
 private:
+   int pid_a(uint16 pid) const;
+   int pid_b(uint16 pid) const;
    PIDMap pids;
 };
 
+inline ActivePID::ActivePID() {
+   reset();
+}
+
+inline int ActivePID::pid_a(uint16 pid) const {
+   return pid >> ACTIVEPID_SHIFT;
+}
+inline int ActivePID::pid_b(uint16 pid) const {
+   return 1 << (pid & ((1 << (ACTIVEPID_SHIFT + 1)) - 1));
+}
+
 inline bool ActivePID::isActive(uint16 pid) const {
-   PIDMap::const_iterator itr = pids.find(pid);
-   if (itr == pids.end()) return false;
-   return true;
+   return (pids[pid_a(pid)] & pid_b(pid)) != 0;
 }
 
 void ActivePID::activate(uint16 pid) {
-   pids[pid] = 1;
+   assert(pid < ACTIVEPID_SZ);
+   pids[pid_a(pid)] |= pid_b(pid);
 }
 
 void ActivePID::deactivate(uint16 pid) {
-   PIDMap::iterator itr = pids.find(pid);
-   if (itr == pids.end()) return;
-   pids.erase(itr);
+   pids[pid_a(pid)] &= ~(pid_b(pid));
 }
 
 void ActivePID::reset() {
-   pids.clear();
+   for (int i = 0; i < ACTIVEPID_SZ; i++) {
+      pids[i] = 0;
+   }
 }
 
 /*
