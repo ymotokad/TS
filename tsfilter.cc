@@ -61,10 +61,11 @@ inline int ActivePID::pid_a(uint16 pid) const {
    return pid >> ACTIVEPID_SHIFT;
 }
 inline int ActivePID::pid_b(uint16 pid) const {
-   return 1 << (pid & ((1 << (ACTIVEPID_SHIFT + 1)) - 1));
+   return 1 << (pid & ((1 << ACTIVEPID_SHIFT) - 1));
 }
 
 inline bool ActivePID::isActive(uint16 pid) const {
+   assert(pid < ACTIVEPID_SZ);
    return (pids[pid_a(pid)] & pid_b(pid)) != 0;
 }
 
@@ -362,7 +363,7 @@ int main(int argc, char *argv[]) {
 			//MPEGStream::dumpHeader(mpeg);
 		     } else if (obj->getStreamType() == obj->StreamType_ADTS) {
 			ADTSHeader *adts = (ADTSHeader *)obj;
-			printf("DBGPES: adts sync=0x%04x\n", adts->sync_word());
+			//printf("DBGPES: adts sync=0x%04x\n", adts->sync_word());
 		     }
 		     delete obj;
 		  }
