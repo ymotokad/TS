@@ -342,14 +342,15 @@ int main(int argc, char *argv[]) {
 	 if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
 	    for (int i = 0; i < ts.programs_updated.size(); i++) {
 	       uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
-	       ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
-	       assert(pmt != NULL);
-	       assert(pmt->isComplete());
-	       pmt->for_all_streams(setProgramInfo, &pid_manager);
+	       if (pmt_pid != 0) {
+		  ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
+		  assert(pmt->isComplete());
+		  pmt->for_all_streams(setProgramInfo, &pid_manager);
 
-	       ProgramInfo *pi = new ProgramInfo();
-	       pmt->for_all_streams(setProgramStream, pi);
-	       prog_manager.setProgramInfo(ts.programs_updated[i], pi);
+		  ProgramInfo *pi = new ProgramInfo();
+		  pmt->for_all_streams(setProgramStream, pi);
+		  prog_manager.setProgramInfo(ts.programs_updated[i], pi);
+	       }
 	    }
 	 }
 
@@ -362,6 +363,13 @@ int main(int argc, char *argv[]) {
 	       prog_manager.setComponentInfo(eit->service_id(), cip);
 	    }
 	    eit->for_all_components(setProgramComponents, cip);
+	 }
+
+	 /*----------------------------
+	  * Post processings
+	  */
+	 if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
+	    ts.programs_updated.clear();
 	 }
 
       }
