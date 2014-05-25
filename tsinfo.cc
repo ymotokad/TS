@@ -213,15 +213,15 @@ private:
 /*
  * Callback functions
  */
-void setProgramInfo(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+static void setProgramInfo(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
    PIDManager *pidmgr = (PIDManager *)dtp;
    pidmgr->setProgramByPID(pid, program);
 }
-void setProgramStream(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+static void setProgramStream(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
    ProgramInfo *pi = (ProgramInfo *)dtp;
    pi->addStream(component_tag);
 }
-void setProgramComponents(uint16 program, const char *str, uint8 component_tag, void *dtp) {
+static void setProgramComponents(uint16 program, const char *str, uint8 component_tag, void *dtp) {
    ComponentInfo *cip = (ComponentInfo *)dtp;
    Component *cp = cip->getComponent(component_tag);
    if (cp == NULL) {
