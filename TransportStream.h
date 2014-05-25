@@ -61,7 +61,7 @@ inline bool BufferedInputStream::eof() const {
 class TransportStream {
  public:
    TransportStream();
-   ~TransportStream();
+   virtual ~TransportStream();
    int decode(BufferedInputStream *isp);
    void setOption_dump(bool onoff = true);
    void setOption_showProgramInfo(bool onoff = true);
