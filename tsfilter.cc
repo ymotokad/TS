@@ -30,6 +30,7 @@ static void usage(const char *argv0) {
    std::cerr << "   -k N          probe leading N packets and skip until begining of the program, which is judged by Program Map Table change" << std::endl;
    std::cerr << "   -s seconds    skip begining packets for specified seconds" << std::endl;
    std::cerr << "   -t seconds    stop after writing specified seconds of packets to output stream" << std::endl;
+   std::cerr << "   -l filename   store first 100MB of the inputfile for debugging" << std::endl;
 }
 
 /*
@@ -202,6 +203,7 @@ int main(int argc, char *argv[]) {
    bool opt_g = false;
    char *opt_i = NULL;
    char *opt_o = NULL;
+   char *opt_l = NULL;
    int program_id = -1;
    int probe_size = 0;
    int seconds_to_skip = 0;
@@ -241,6 +243,9 @@ int main(int argc, char *argv[]) {
 	 break;
       case 't':
 	 seconds_to_record = atoi(optarg);
+	 break;
+      case 'l':
+	 opt_l = optarg;
 	 break;
       case 'h':
       default:
@@ -297,6 +302,17 @@ int main(int argc, char *argv[]) {
       if (probe_size > 0) {
 	 spool = new ByteArraySpool(probe_size);
       }
+   }
+   std::ofstream lfs;
+   int lfs_remainingBytes = 0;
+   if (opt_l != NULL) {
+      lfs.open(opt_l);
+      if (!lfs) {
+	 std::cerr << argv0 << ": error openning file " << opt_l << std::endl;
+	 return 1;
+      }
+      lfs.exceptions(std::ios::badbit);
+      lfs_remainingBytes = 100 * 1024 * 1024;
    }
 
    // Input stream
@@ -368,6 +384,15 @@ int main(int argc, char *argv[]) {
 		     delete obj;
 		  }
 	       }
+	    }
+	    /*----------------------------
+	     * Store for debugging
+	     */
+	    if (lfs_remainingBytes > 0) {
+	       const ByteArray *rawdata = ts.packet->getRawdata();
+	       assert(rawdata->length() == SIZEOF_PACKET);
+	       lfs.write((const char *)rawdata->part(), rawdata->length());
+	       lfs_remainingBytes -= rawdata->length();
 	    }
 
 	    /*----------------------------
@@ -520,6 +545,7 @@ int main(int argc, char *argv[]) {
       }
       ofs.close();
    }
+   lfs.close();
    ifs.close();
 
    return 0;
