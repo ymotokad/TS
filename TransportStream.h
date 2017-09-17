@@ -99,6 +99,7 @@ class TransportStream {
  public:
    TransportPacket *packet;
    bool isActiveTSEvent(TSEvent flag) const;
+   bool checkTSEvent(TSEvent flag) const;
    std::time_t getTime();
    ProgramAssociationSection *getLatestPAT() const;
    std::vector<uint16> programs;
@@ -159,6 +160,10 @@ inline void TransportStream::clearTSEvent() {
 }
 
 inline bool TransportStream::isActiveTSEvent(TSEvent flag) const {
+   return ((tsEvent & flag) != 0);
+}
+
+inline bool TransportStream::checkTSEvent(TSEvent flag) const {
    return ((tsEvent & flag) != 0);
 }
 
