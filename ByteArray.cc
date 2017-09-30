@@ -18,7 +18,7 @@ static char rcsid[] = "@(#)$Id$";
 
 ByteArray::ByteArray(const ByteArray& src) : room(src.room) {
    src.room->incr_refcnt();
-   tail = src.length();
+   tail = src.tail;
    offset = src.offset;
 }
 
