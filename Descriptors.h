@@ -32,6 +32,7 @@ class Descriptor {
    static const int tag_content			= 0x54;
    static const int tag_audio_component		= 0xc4;
    static const int tag_video_decode_control	= 0xc8;
+   static const int tag_data_component		= 0xfd;
  private:
    static Id2StringMap descriptors;
    static void initDescriptors();
@@ -166,6 +167,24 @@ class Desc_AudioComponent : public BitStream {
    static const int pos_reserved2		= 12;
    static const int pos_ISO_639_language_code	= 13;
    static const int pos_end_of_fixed_data	= 14;
+
+   void initobj();
+};
+
+
+/*
+ * Desc_DataComponent
+ */
+class Desc_DataComponent : public BitStream {
+ public:
+   Desc_DataComponent();
+   uint16 data_component_id() const;
+
+   static const uint16 id_ARIB_caption		= 0x0008;
+   
+ protected:
+   // Order of bit stream data
+   static const int pos_data_component_id	= 2;
 
    void initobj();
 };
