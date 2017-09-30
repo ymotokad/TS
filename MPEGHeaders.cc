@@ -24,10 +24,13 @@ void MPEGHeader::setBuffer(const ByteArray &data) {
    assert(mydata == NULL);
    mydata = new ByteArrayBuffer(data);
 }
+void MPEGHeader::initialize() {
+   setStreamType(StreamType_MPEG);
+}
 FIELDWIDTH_PREAMBLE(MPEGHeader)
 FIELDWIDTH_CONTENT(pos_start_code_prefix,			24)
 FIELDWIDTH_CONTENT(pos_start_code,				8)
-FIELDWIDTH_POSTAMBLE(MPEGHeader, /**/)
+FIELDWIDTH_POSTAMBLE(MPEGHeader, initialize())
 
 /*
  * MPEGPictureHeader class

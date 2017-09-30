@@ -27,6 +27,7 @@ class ProgramMapSection : public Section {
    int program_info_length() const;
 
    static const int sttype_VideoMPEG2			= 2;
+   static const int sttype_Data				= 6;
    static const int sttype_AudioAAC			= 15;
    static const int sttype_AudioAACForMPEG4		= 17;
 

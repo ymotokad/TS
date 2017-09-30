@@ -18,7 +18,9 @@ static char rcsid[] = "@(#)$Id$";
  * PacketizedElementaryStream class
  */
 
-PacketizedElementaryStream::PacketizedElementaryStream() {
+PacketizedElementaryStream::PacketizedElementaryStream(int siglen) {
+   carryover = NULL;
+   startSignatureLength = siglen;
 }
 
 PacketizedElementaryStream::~PacketizedElementaryStream() {
@@ -27,8 +29,10 @@ PacketizedElementaryStream::~PacketizedElementaryStream() {
       ByteArray *p = *it;
       delete p;
    }
+   if (carryover != NULL) delete carryover;
 }
 
+#if 0
 void PacketizedElementaryStream::put(const ByteArray *packet) {
 #if 1
    buffer.push_back(new ByteArrayBuffer(*packet));
@@ -46,6 +50,55 @@ void PacketizedElementaryStream::put(const ByteArray *packet) {
    printf("DBG:            --");
    p->hexdump(0, &std::cout, 0, 8);
 #endif
+}
+#endif
+
+void PacketizedElementaryStream::put(const ByteArray *packet) {
+   int head, i;
+   bool lastDataValid = true;
+   const ByteArray *src;
+   if (carryover == NULL) {
+      i = 0;
+      lastDataValid = false;
+      carryover = new ByteArrayBuffer(*packet);
+   } else {
+      i = carryover->length() - nStartSignature();
+      carryover->append(*packet);
+   }
+   src = carryover;
+   head = 0;
+
+   while (i < src->length() - nStartSignature()) {
+      if (isStartSignature(src, i)) {
+	 ByteArrayBuffer *buf;
+	 if (lastDataValid) {
+	    buf = new ByteArrayBuffer(1024, 1024);
+	    buf->append(src->part(head, i - head), i - head);
+	    buffer.push_back(buf);
+	    //printf("A: head=%d, i=0x%x, src=", head, i); src->hexdump(0, &std::cout, 0, -1);
+	    //printf("   ---pushed=");buf->hexdump(0, &std::cout, 0, -1);
+	 } else {
+	    lastDataValid = true;
+	    //printf("B: head=%d, i=0x%x, src=", head, i); src->hexdump(0, &std::cout, 0, -1);
+	 }
+	 head = i;
+	 i += nStartSignature();
+      } else {
+	 i++;
+      }
+   }
+
+   if (lastDataValid) {
+      ByteArray *p = carryover->subarray(head);
+      delete carryover;
+      carryover = new ByteArrayBuffer(*p);
+      //printf("DBG: MPEGStream::put() exit, carryover->length()=0x%x\n", carryover->length());
+      delete p;
+   } else {
+      delete carryover;
+      carryover = NULL;
+      //printf("DBG: MPEGStream::put() exit, carryover->length()=0\n");
+   }
 }
 
 void PacketizedElementaryStream::remove(int bytes) {

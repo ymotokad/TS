@@ -27,6 +27,7 @@ class ProgramClock {
    void set(const ProgramClock &src);
    void sync(uint64 base, uint16 ext);
    void append(int seconds);
+   void appendMilliSeconds(int mseconds);
    const ProgramClock &subtract(const ProgramClock &right);
    bool isGreaterThan(const ProgramClock &right) const;
    bool isGreaterThanOrEqualTo(const ProgramClock &right) const;
@@ -110,6 +111,11 @@ inline void ProgramClock::sync(uint64 base, uint16 ext) {
 inline void ProgramClock::append(int seconds) {
    assert(initialized);
    clock_base += ((int64)seconds * TS_CLOCK_BASE_FREQUENCY);
+}
+
+inline void ProgramClock::appendMilliSeconds(int mseconds) {
+   assert(initialized);
+   clock_base += ((int64)mseconds * (TS_CLOCK_BASE_FREQUENCY / 1000));
 }
 
 inline bool ProgramClock::isGreaterThan(const ProgramClock &right) const {

@@ -36,7 +36,9 @@ int ProgramAssociationSection::numPrograms() const {
    int len = section_length()
       - (sizeofBufferBefore(pos_START_PROGRAM_DATA) - sizeofBufferBefore(pos_section_length + 1))
       - 4; // CRC_32
-   assert((len % 4) == 0);
+   if ((len % 4) != 0) {
+      logger->warning("ProgramAssociationSection: length %d is not a multiple of four", len);
+   }
    return len / 4;
 }
 

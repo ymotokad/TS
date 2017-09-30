@@ -30,7 +30,7 @@ static void usage(const char *argv0) {
    std::cerr << "   -k N          probe leading N packets and skip until begining of the program, which is judged by Program Map Table change" << std::endl;
    std::cerr << "   -s seconds    skip begining packets for specified seconds" << std::endl;
    std::cerr << "   -t seconds    stop after writing specified seconds of packets to output stream" << std::endl;
-   std::cerr << "   -l filename   store first 100MB of the inputfile for debugging" << std::endl;
+   std::cerr << "   -r filename   store first 100MB of the inputfile for debugging" << std::endl;
 }
 
 /*
@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
    bool opt_g = false;
    char *opt_i = NULL;
    char *opt_o = NULL;
-   char *opt_l = NULL;
+   char *opt_r = NULL;
    int program_id = -1;
    int probe_size = 0;
    int seconds_to_skip = 0;
@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
 
    // Parse command line options.
    int option_char;
-   while ((option_char = getopt(argc, argv, "vdi:o:p:egk:s:t:")) != -1) {
+   while ((option_char = getopt(argc, argv, "vdi:o:p:egk:s:t:r:")) != -1) {
       switch (option_char) {
       case 'v':
 	 opt_v = true;
@@ -244,8 +244,8 @@ int main(int argc, char *argv[]) {
       case 't':
 	 seconds_to_record = atoi(optarg);
 	 break;
-      case 'l':
-	 opt_l = optarg;
+      case 'r':
+	 opt_r = optarg;
 	 break;
       case 'h':
       default:
@@ -303,16 +303,16 @@ int main(int argc, char *argv[]) {
 	 spool = new ByteArraySpool(probe_size);
       }
    }
-   std::ofstream lfs;
-   int lfs_remainingBytes = 0;
-   if (opt_l != NULL) {
-      lfs.open(opt_l);
-      if (!lfs) {
-	 std::cerr << argv0 << ": error openning file " << opt_l << std::endl;
+   std::ofstream rfs;
+   int rfs_remainingBytes = 0;
+   if (opt_r != NULL) {
+      rfs.open(opt_r);
+      if (!rfs) {
+	 std::cerr << argv0 << ": error openning file " << opt_r << std::endl;
 	 return 1;
       }
-      lfs.exceptions(std::ios::badbit);
-      lfs_remainingBytes = 100 * 1024 * 1024;
+      rfs.exceptions(std::ios::badbit);
+      rfs_remainingBytes = 100 * 1024 * 1024;
    }
 
    // Input stream
@@ -386,13 +386,13 @@ int main(int argc, char *argv[]) {
 	       }
 	    }
 	    /*----------------------------
-	     * Store for debugging
+	     * Store rawdata for debugging
 	     */
-	    if (lfs_remainingBytes > 0) {
+	    if (rfs_remainingBytes > 0) {
 	       const ByteArray *rawdata = ts.packet->getRawdata();
 	       assert(rawdata->length() == SIZEOF_PACKET);
-	       lfs.write((const char *)rawdata->part(), rawdata->length());
-	       lfs_remainingBytes -= rawdata->length();
+	       rfs.write((const char *)rawdata->part(), rawdata->length());
+	       rfs_remainingBytes -= rawdata->length();
 	    }
 
 	    /*----------------------------
@@ -545,7 +545,7 @@ int main(int argc, char *argv[]) {
       }
       ofs.close();
    }
-   lfs.close();
+   rfs.close();
    ifs.close();
 
    return 0;

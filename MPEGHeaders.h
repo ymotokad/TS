@@ -10,12 +10,12 @@
 static const char MPEGHeaders_rcsid[] = "@(#)$Id$";
 #endif
 #include "TSTypes.h"
-#include "BitStream.h"
+#include "ElementaryStream.h"
 
 /*
  * MPEGHeader class
  */
-class MPEGHeader : public BitStream {
+class MPEGHeader : public ElementaryStream {
 public:
    MPEGHeader();
    void setBuffer(const ByteArray &data);
@@ -29,6 +29,7 @@ protected:
    
  protected:
    void initobj();
+   void initialize();
 };
 
 inline uint8 MPEGHeader::start_code() const {

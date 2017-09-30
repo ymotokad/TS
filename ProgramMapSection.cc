@@ -119,8 +119,12 @@ void ProgramMapSection::dump(std::ostream *osp) const {
 	       Desc_StreamIdentifier desc;
 	       desc.setBuffer(*this, idx, len);
 	       *osp << "component_tag (for EIT)=" << desc.component_tag_string() << " ";
+	    } else if (ed_tag == Descriptor::tag_data_component) {
+	       Desc_DataComponent desc;
+	       desc.setBuffer(*this, idx, len);
+	       *osp << "data_component_id=" << std::hex << desc.data_component_id() << " ";
 	    } else {
-	       *osp << "ed_tag=0x" << std::hex << ed_tag << " ";
+	       *osp << "ed_tag=" << std::hex << ed_tag << " ";
 	    }
 	    idx += len;
 	 }

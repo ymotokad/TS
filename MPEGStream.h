@@ -16,9 +16,6 @@ static const char *rcsid_MPEGStream = "@(#)$Id$";
 #define MPEG_STARTCODE_0	0x00
 #define MPEG_STARTCODE_1	0x00
 #define MPEG_STARTCODE_2	0x01
-inline bool isStartCode(const ByteArray *bp, int off) {
-   return bp->at(off + 0) == MPEG_STARTCODE_0 && bp->at(off + 1) == MPEG_STARTCODE_1 && bp->at(off + 2) == MPEG_STARTCODE_2;
-}
 
 /*
  * MPEGStream
@@ -27,8 +24,7 @@ class MPEGStream : public PacketizedElementaryStream {
  public:
    MPEGStream();
    virtual ~MPEGStream();
-   void put(const ByteArray *packet);
-   MPEGHeader *readObject(); // MPEGHeader returned have to be deleted by caller side
+   ElementaryStream *readObject(); // MPEGHeader returned have to be deleted by caller side
    static void dumpHeader(MPEGHeader *h);
 
    static const int StartCode_Picture		= 0x00;
@@ -43,7 +39,7 @@ class MPEGStream : public PacketizedElementaryStream {
    static const int StartCode_VideoStream_Min	= 0xe0;
    static const int StartCode_VideoStream_Max	= 0xef;
  protected:
-   ByteArrayBuffer *carryover;
+   bool isStartSignature(const ByteArray *bp, int off) const;
 };
 
 

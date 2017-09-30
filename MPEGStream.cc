@@ -17,68 +17,24 @@ static char rcsid[] = "@(#)$Id$";
  * MPEGStream class
  */
 
-MPEGStream::MPEGStream() : carryover(NULL) {
+MPEGStream::MPEGStream() : PacketizedElementaryStream(4) {
 }
 
 MPEGStream::~MPEGStream() {
-   if (carryover != NULL) delete carryover;
 }
 
-void MPEGStream::put(const ByteArray *packet) {
-   int head, i;
-   bool lastDataValid = true;
-   const ByteArray *src;
-   if (carryover == NULL) {
-      i = 0;
-      lastDataValid = false;
-      carryover = new ByteArrayBuffer(*packet);
-   } else {
-      i = carryover->length() - 4;
-      carryover->append(*packet);
-   }
-   src = carryover;
-   head = 0;
-
-   while (i < src->length() - 4) {
-      if (isStartCode(src, i)) {
-	 ByteArrayBuffer *buf;
-	 if (lastDataValid) {
-	    buf = new ByteArrayBuffer(1024, 1024);
-	    buf->append(src->part(head, i - head), i - head);
-	    buffer.push_back(buf);
-	    //printf("A: head=%d, i=0x%x, src=", head, i); src->hexdump(0, &std::cout, 0, -1);
-	    //printf("   ---pushed=");buf->hexdump(0, &std::cout, 0, -1);
-	 } else {
-	    lastDataValid = true;
-	    //printf("B: head=%d, i=0x%x, src=", head, i); src->hexdump(0, &std::cout, 0, -1);
-	 }
-	 head = i;
-	 i += 4;
-      } else {
-	 i++;
-      }
-   }
-
-   if (lastDataValid) {
-      ByteArray *p = carryover->subarray(head);
-      delete carryover;
-      carryover = new ByteArrayBuffer(*p);
-      //printf("DBG: MPEGStream::put() exit, carryover->length()=0x%x\n", carryover->length());
-      delete p;
-   } else {
-      delete carryover;
-      carryover = NULL;
-      //printf("DBG: MPEGStream::put() exit, carryover->length()=0\n");
-   }
+bool MPEGStream::isStartSignature(const ByteArray *bp, int off) const {
+   return bp->at(off + 0) == MPEG_STARTCODE_0 && bp->at(off + 1) == MPEG_STARTCODE_1 && bp->at(off + 2) == MPEG_STARTCODE_2;
 }
 
-MPEGHeader *MPEGStream::readObject() {
+
+ElementaryStream *MPEGStream::readObject() {
    if (buffer.empty()) return NULL;
    ByteArray *buf = buffer.front();
    buffer.pop_front();
 
    MPEGHeader *ret = NULL;
-   assert(isStartCode(buf, 0));
+   assert(isStartSignature(buf, 0));
    switch (buf->at(3)) {
    case StartCode_Picture:
       ret = new MPEGPictureHeader();

@@ -102,7 +102,6 @@ void B24_Caption_DataGroup::dump(std::ostream *osp) const {
 }
 
 
-
 /***
  * B24_Caption_CaptionManagementData Class
  */
@@ -176,9 +175,6 @@ void B24_Caption_CaptionData::convert(CaptionWriter *writer) {
    for (int idx = 0; idx < data_unit_loop_length(); idx += len) {
       B24_Caption_DataUnit unit(ba, idx);
       len = unit.length();
-      //unit.dump(&std::cout);
-      //std::cout << "  len=" << std::dec << (int)len << ", length()=" << ba.length() << ", idx=" << idx << std::endl;
-      //assert(len <= ba.length() - idx);
       unit.convert(writer);
    }
 }
@@ -300,16 +296,31 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
    try {
       for (int idx = 0; idx < data_unit_size(); idx++) {
 	 unsigned char ch = stream.at(idx);
-	 if (IN_GR_P(ch)) {
-	    int n = decode_GR(&ans, stream, idx, font_small == true);
-	    idx += n - 1;
-	 } else if (IN_GL_P(ch)) {
-	    int n = decode_GL(&ans, stream, idx, font_small == true);
-	    idx += n - 1;
-	 } else if (ch == 0x1b) { // ESC
+	 unsigned char ch2;
+	 switch (ch) {
+	 case 0x0a: // LF
+	    ans += "\\N";
+	    break;
+	 case 0x0c:
+	    logger->debug("FF");
+	    writer->flush();
+	    break;
+	 case 0x0e: // LS1
+	    logger->debug("LS1");
+	    decode_GL = decode_G1;
+	    break;
+	 case 0x0f: // LS0
+	    logger->debug("LS0");
+	    decode_GL = decode_G0;
+	    break;
+	 case 0x16: // PAPF
+	    idx++;
+	    logger->debug("PAPF-0x%02x", stream.at(idx));
+	    break;
+	 case 0x1b: // ESC
 	    idx++;
 	    logger->debug("ESC-0x%02x-0x%02x", ch, stream.at(idx), stream.at(idx + 1));
-	    unsigned char ch2 = stream.at(idx);
+	    ch2 = stream.at(idx);
 	    if (ch2 == 0x7e) { // LS1R
 	       decode_GR = decode_G1;
 	    } else if (ch2 == 0x7d) { // LS2R
@@ -321,87 +332,85 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 	    } else if (ch2 == 0x6f) { // LS3
 	       decode_GL = decode_G3;
 	    }
-	 } else if (ch == 0x1c) { // APS
+	    break;
+	 case 0x1c: // APS
 	    logger->debug("APS-0x%02x-0x%02x", stream.at(idx + 1), stream.at(idx + 2));
 	    idx += 2;
-	 } else if (ch == 0x16) { // PAPF
-	    idx++;
-	    logger->debug("PAPF-0x%02x", stream.at(idx));
-	 } else if (ch == 0x0d) {
-	    // CR -> LF
-	    ans += "\\N";
-	 } else if (ch == 0x0e) { // LS1
-	    logger->debug("LS1");
-	    decode_GL = decode_G1;
-	 } else if (ch == 0x0f) { // LS0
-	    logger->debug("LS0");
-	    decode_GL = decode_G0;
-	 } else if (ch == 0x0c) {
-	    logger->debug("FF");
-	    writer->flush();
-	 } else if (ch == 0x20) {
-	    ans += " ";
-	 } else if (ch == 0x1d) { // SS3
+	    break;
+	 case 0x1d: // SS3
 	    idx++;
 	    logger->debug("SS3-0x%02x", stream.at(idx));
-	 } else if (0x80 <= ch && ch <= 0x87) { // BKF - WHF
-	    logger->debug("BKF-WHF");
-	    ;
-	 } else if (0x88 == ch) { // SSZ
+	    break;
+	 case 0x20:
+	    ans += " ";
+	    break;
+	 case 0x88: // SSZ
 	    logger->debug("SSZ");
 	    font_small = true;
-	 } else if (0x89 == ch) { // MSZ
+	    break;
+	 case 0x89: // MSZ
 	    logger->debug("MSZ");
 	    font_small = false;
-	 } else if (0x8a == ch) { // NSZ
+	    break;
+	 case 0x8a: // NSZ
 	    logger->debug("NSZ");
 	    font_small = false;
-	 } else if (ch == 0x8b) { // SZX
+	    break;
+	 case 0x8b: // SZX
 	    idx++;
 	    logger->debug("SZX-0x%02x", stream.at(idx));
-	 } else if (ch == 0x90) { // COL
+	    break;
+	 case 0x90: // COL
 	    idx++;
 	    logger->debug("COL-0x%02x-0x%02x", stream.at(idx), stream.at(idx + 1));
 	    if (stream.at(idx) == 0x20) idx++;
-	 } else if (ch == 0x91) { // FLC
+	    break;
+	 case 0x91: // FLC
 	    idx++;
 	    logger->debug("FLC-0x%02x", stream.at(idx));
-	 } else if (ch == 0x92) { // CDC
+	    break;
+	 case 0x92: // CDC
 	    idx++;
 	    logger->debug("CDC-0x%02x-0x%02x", stream.at(idx), stream.at(idx + 1));
 	    if (stream.at(idx) == 0x20) idx++;
-	 } else if (ch == 0x93) { // POL
+	    break;
+	 case 0x93: // POL
 	    idx++;
 	    logger->debug("POL-0x%02x", stream.at(idx));
-	 } else if (ch == 0x94) { // WMM
+	    break;
+	 case 0x94: // WMM
 	    idx++;
 	    logger->debug("WMM-0x%02x", stream.at(idx));
-	 } else if (ch == 0x95) { // MACRO
+	    break;
+	 case 0x95: // MACRO
 	    idx++;
 	    logger->debug("MACRO-0x%02x", stream.at(idx));
 	    for (int i = stream.length() - idx; i >= 0; i--) {
 	       if (stream.at(idx) == 0x4f) break; // End of macro
 	       idx++;
 	    }
-	 } else if (ch == 0x97) { // HLC
+	    break;
+	 case 0x97: // HLC
 	    idx++;
 	    logger->debug("HLC-0x%02x", stream.at(idx));
-	 } else if (ch == 0x98) { // RPC
+	    break;
+	 case 0x98: // RPC
 	    idx++;
 	    logger->debug("RPC-0x%02x", stream.at(idx));
-	 } else if (ch == 0x99) { // SPL
+	    break;
+	 case 0x99: // SPL
 	    logger->debug("SPL");
-	    ;
-	 } else if (ch == 0x9a) { // STL
+	    break;
+	 case 0x9a: // STL
 	    logger->debug("STL");
-	    ;
-	 } else if (ch == 0x9b) { // CSI
+	    break;
+	 case 0x9b: // CSI
 	    idx++;
 	    logger->debug("CSI-0x%02x", stream.at(idx));
 	    if (0x30 <= stream.at(idx) && stream.at(idx) <= 0x39) {
 	       idx++;
 	       for (int i = stream.length()  - idx; i >= 0; i--) {
-		  unsigned char ch2 = stream.at(idx);
+		  ch2 = stream.at(idx);
 		  if (ch2 == 0x53) break; // SWF
 		  if (ch2 == 0x54) break; // CCC
 		  if (ch2 == 0x6e) break; // RCS
@@ -429,7 +438,8 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 		  idx++;
 	       }
 	    }
-	 } else if (ch == 0x9d) { // TIME
+	    break;
+	 case 0x9d: // TIME
 	    idx++;
 	    if (0x20 <= stream.at(idx) && stream.at(idx) <= 0x28) {
 	       logger->debug("TIME-0x%02x-0x%02x(%d)", stream.at(idx), stream.at(idx + 1), stream.at(idx + 1) & 0x3f);
@@ -443,8 +453,20 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 		  idx++;
 	       }
 	    }
-	 } else {
-	    //printf("{? %02x}", stream.at(idx));
+	    break;
+	 default:
+	    if (IN_GR_P(ch)) {
+	       int n = decode_GR(&ans, stream, idx, font_small == true);
+	       idx += n - 1;
+	    } else if (IN_GL_P(ch)) {
+	       int n = decode_GL(&ans, stream, idx, font_small == true);
+	       idx += n - 1;
+	    } else if (0x80 <= ch && ch <= 0x87) { // BKF - WHF
+	       logger->debug("BKF-WHF");
+	       ;
+	    } else {
+	       //printf("{? %02x}", stream.at(idx));
+	    }
 	 }
       }
    } catch(ByteArrayOverflowException &e) {
