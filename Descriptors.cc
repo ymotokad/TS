@@ -382,3 +382,17 @@ uint8 Desc_AudioComponent::component_tag() const {
 uint8 Desc_AudioComponent::stream_type() const {
    return bit_field8(pos_stream_type);
 }
+
+
+/*
+ * Desc_DataComponent class
+ */
+FIELDWIDTH_PREAMBLE(Desc_DataComponent)
+FIELDWIDTH_CONTENT(Descriptor::pos_descriptor_tag,	8)
+FIELDWIDTH_CONTENT(Descriptor::pos_descriptor_length,	8)
+FIELDWIDTH_CONTENT(pos_data_component_id,		16)
+FIELDWIDTH_POSTAMBLE(Desc_DataComponent, /**/)
+
+uint16 Desc_DataComponent::data_component_id() const {
+   return bit_field16(pos_data_component_id);
+}
