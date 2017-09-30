@@ -22,11 +22,12 @@ static char rcsid[] = "@(#)$Id$";
  * CaptionWriter class
  */
 
-CaptionWriter::CaptionWriter() {
+CaptionWriter::CaptionWriter() : delay_until(NULL) {
 }
 
 CaptionWriter::~CaptionWriter() {
    if (!caption.empty()) flush();
+   if (delay_until != NULL) delete delay_until;
 }
 
 void CaptionWriter::flush() {
@@ -37,17 +38,23 @@ void CaptionWriter::tellTime(const ProgramClock &clk) {
    int n = caption.size();
    if (caption.empty()) {
       start_time.set(clk);
-      delay_by = 0;
+      if (delay_until != NULL) delete delay_until;
+      delay_until = NULL;
    }
 }
 
+void CaptionWriter::delay(int deciseconds) {
+   if (delay_until == NULL) {
+      delay_until = new ProgramClock(told_time);
+   }
+   delay_until->append(deciseconds / 10);
+   delay_until->appendMilliSeconds((deciseconds % 10) * 100);
+}
+
 ProgramClock CaptionWriter::end_time() const {
-   if (delay_by == 0) return told_time;
-   ProgramClock end_time(start_time);
-   end_time.append(delay_by / 10);
-   end_time.appendMilliSeconds((delay_by % 10) * 100);
-   if (told_time.isGreaterThan(end_time)) return told_time;
-   return end_time;
+   if (delay_until == NULL) return told_time;
+   if (told_time.isGreaterThan(*delay_until)) return told_time;
+   return *delay_until;
 }
 
 
@@ -63,7 +70,8 @@ void CaptionWriter::append(std::string src) {
 
 void CaptionWriter::clear() {
    caption.clear();
-   delay_by = 0;
+   if (delay_until != NULL) delete delay_until;
+   delay_until = NULL;
    start_time.set(told_time);
 }
 
