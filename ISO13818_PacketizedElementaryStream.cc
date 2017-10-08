@@ -145,36 +145,6 @@ void ISO13818_PES_Packet::shrink_blist() {
    }
 }
 
-#if 0
-
-void ISO13818_PES_Packet::remove(int bytes) {
-   int bytesToBeRemoved = bytes;
-   ByteArray *p = blist.front();
-   blist.pop_front();
-   while (bytesToBeRemoved > 0) {
-      if (p->length() > bytesToBeRemoved) {
-	 ByteArray *sub = p->subarray(bytesToBeRemoved);
-	 delete p;
-	 blist.push_front(sub);
-	 bytesToBeRemoved = 0;
-      } else {
-	 bytesToBeRemoved -= p->length();
-	 delete p;
-	 p = blist.front();
-	 blist.pop_front();
-      }
-   }
-}
-
-void ISO13818_PES_Packet::clear() {
-   while (!blist.empty()) {
-      ByteArray *p = blist.front();
-      blist.pop_front();
-      delete p;
-   }
-}
-#endif
-
 int ISO13818_PES_Packet::length() const {
    int len = 0;
    for (PESDataList::const_iterator it = blist.begin(); it != blist.end(); it++) {
@@ -209,100 +179,6 @@ inline uint8 decompose_flag(uint8 b, int off, int width) {
    };
    return (b & start_masks[off] & end_masks[off + width - 1]) >> 8 - (off + width);
 }
-
-#if 0
-void ISO13818_PacketizedElementaryStream::put(const ProgramClock &clk, const ByteArray *packet) {
-
-   if (blist.empty()) packet_start_time.set(clk);
-
-   // append to blist
-   blist.push_back(new ByteArray(*packet));
-
-   // Map to PES
-   ISO13818_PES_Packet pes;
-   ByteArray *p = blist.front();
-   assert(p->length() >= pes.headerSize());
-   pes.setBuffer(new ByteArray(*p));
-   p->hexdump(0,&std::cout);
-   
-   if (pes.packet_start_code_prefix() == 0x000001 && pes.stream_id() >= ISO13818_PacketizedElementaryStream::stream_id_program_stream_map) {
-      try {
-	 // Calculate PES header size
-	 int pes_header_size = pes.headerSize();
-	 if (pes.stream_id() != stream_id_program_stream_map &&
-	     pes.stream_id() != stream_id_padding_stream &&
-	     pes.stream_id() != stream_id_private_stream_2 && 
-	     pes.stream_id() != stream_id_ECM_stream &&
-	     pes.stream_id() != stream_id_EMM_stream && 
-	     pes.stream_id() != stream_id_program_stream_directory && 
-	     pes.stream_id() != stream_id_DSMCC_stream && 
-	     pes.stream_id() != stream_id_H222_1_type_E) {
-
-#if 0
-	    uint8 PTS_DTS_flags = decompose_flag(p->at(pes_header_size + 1), 0, 2);
-	    uint8 ESCR_flag = decompose_flag(p->at(pes_header_size + 1), 2, 1);
-	    uint8 ES_rate_flag = decompose_flag(p->at(pes_header_size + 1), 3, 1);
-	    uint8 DSM_trick_mode_flag = decompose_flag(p->at(pes_header_size + 1), 4, 1);
-	    uint8 additional_copy_info_flag = decompose_flag(p->at(pes_header_size + 1), 5, 1);
-	    uint8 PES_CRC_flag = decompose_flag(p->at(pes_header_size + 1), 6, 1);
-	    uint8 PES_extension_flag = decompose_flag(p->at(pes_header_size + 1), 7, 1);
-#endif
-	    int PES_header_data_length = p->at(pes_header_size + 2);
-	    pes_header_size += 2;
-	    pes_header_size += PES_header_data_length;
-	    pes_header_size += 4;
-#if 0
-	    if (PTS_DTS_flags == 2) pes_header_size += 5;
-	    if (PTS_DTS_flags == 3) pes_header_size += 10;
-	    if (ESCR_flag) pes_header_size += 6;
-	    if (ES_rate_flag) pes_header_size += 3;
-	    if (DSM_trick_mode_flag) pes_header_size += 1;
-	    if (additional_copy_info_flag) pes_header_size += 1;
-	    if (PES_CRC_flag) pes_header_size += 2;
-	    if (PES_extension_flag) {
-	       uint8 PES_private_data_flag = decompose_flag(p->at(pes_header_size), 0, 1);
-	       uint8 pack_header_field_flag = decompose_flag(p->at(pes_header_size), 1, 1);
-	       uint8 program_packet_sequence_counter_flag = decompose_flag(p->at(pes_header_size), 2, 1);
-	       uint8 P_STD_buffer_flag = decompose_flag(p->at(pes_header_size), 3, 1);
-	       uint8 PES_extension_flag_2 = decompose_flag(p->at(pes_header_size), 7, 1);
-	       pes_header_size += 1;
-
-	       if (PES_private_data_flag) pes_header_size += 128/8;
-	       if (pack_header_field_flag) {
-		  uint8 pack_field_length = p->at(pes_header_size);
-		  pes_header_size += 1;
-		  pes_header_size += pack_field_length;
-	       }
-	       if (program_packet_sequence_counter_flag) pes_header_size += 2;
-	       if (P_STD_buffer_flag) pes_header_size += 2;
-	       if (PES_extension_flag_2) {
-		  uint8 PES_extenstion_field_length = p->at(pes_header_size) & 0x7f;
-		  pes_header_size += PES_extenstion_field_length;
-	       }
-	    }
-#endif
-	 }
-	 int told_length = pes.headerSize() + pes.PES_packet_length();
-	 int actual_length = length();
-	 if (actual_length > told_length) {
-	    // PES starts only at TS packet boundary, which means that a single TS packet cannot contain more than
-	    // one PES packets, in other words, actual_length should not be greater than told_length.
-	    // The code reached here just becuase that the 000001 was not packet_start_code_prefix of PES. So just discard the data.
-	    clear();
-	 } else if (actual_length == told_length) {
-	    data_completed = true;
-	    remove(pes_header_size);
-	 } else {
-	    data_completed = false;
-	 }
-      } catch(ByteArrayOverflowException &e) {
-	 data_completed = false;
-      }
-   } else {
-      clear();
-   }
-}
-#endif
 
 void ISO13818_PacketizedElementaryStream::startUnit(const ProgramClock &clk, const ByteArray *src) {
    // Complete previous packet
@@ -362,48 +238,9 @@ bool ISO13818_PacketizedElementaryStream::isReadable() {
 	  packet->stream_id() != stream_id_DSMCC_stream && 
 	  packet->stream_id() != stream_id_H222_1_type_E) {
 	 
-#if 0
-	 uint8 PTS_DTS_flags = decompose_flag(packet->at(pes_header_size + 1), 0, 2);
-	 uint8 ESCR_flag = decompose_flag(packet->at(pes_header_size + 1), 2, 1);
-	 uint8 ES_rate_flag = decompose_flag(packet->at(pes_header_size + 1), 3, 1);
-	 uint8 DSM_trick_mode_flag = decompose_flag(packet->at(pes_header_size + 1), 4, 1);
-	 uint8 additional_copy_info_flag = decompose_flag(packet->at(pes_header_size + 1), 5, 1);
-	 uint8 PES_CRC_flag = decompose_flag(packet->at(pes_header_size + 1), 6, 1);
-	 uint8 PES_extension_flag = decompose_flag(packet->at(pes_header_size + 1), 7, 1);
-#endif
 	 int PES_header_data_length = packet->at(pes_header_size + 2);
 	 pes_header_size += 3;
 	 pes_header_size += PES_header_data_length;
-#if 0
-	 if (PTS_DTS_flags == 2) pes_header_size += 5;
-	 if (PTS_DTS_flags == 3) pes_header_size += 10;
-	 if (ESCR_flag) pes_header_size += 6;
-	 if (ES_rate_flag) pes_header_size += 3;
-	 if (DSM_trick_mode_flag) pes_header_size += 1;
-	 if (additional_copy_info_flag) pes_header_size += 1;
-	 if (PES_CRC_flag) pes_header_size += 2;
-	 if (PES_extension_flag) {
-	    uint8 PES_private_data_flag = decompose_flag(packet->at(pes_header_size), 0, 1);
-	    uint8 pack_header_field_flag = decompose_flag(packet->at(pes_header_size), 1, 1);
-	    uint8 program_packet_sequence_counter_flag = decompose_flag(packet->at(pes_header_size), 2, 1);
-	    uint8 P_STD_buffer_flag = decompose_flag(packet->at(pes_header_size), 3, 1);
-	    uint8 PES_extension_flag_2 = decompose_flag(packet->at(pes_header_size), 7, 1);
-	    pes_header_size += 1;
-
-	    if (PES_private_data_flag) pes_header_size += 128/8;
-	    if (pack_header_field_flag) {
-	       uint8 pack_field_length = packet->at(pes_header_size);
-	       pes_header_size += 1;
-	       pes_header_size += pack_field_length;
-	    }
-	    if (program_packet_sequence_counter_flag) pes_header_size += 2;
-	    if (P_STD_buffer_flag) pes_header_size += 2;
-	    if (PES_extension_flag_2) {
-	       uint8 PES_extenstion_field_length = packet->at(pes_header_size) & 0x7f;
-	       pes_header_size += PES_extenstion_field_length;
-	    }
-	 }
-#endif
       }
 
       if (packet->PES_packet_length() == 0) {
