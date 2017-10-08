@@ -1,3 +1,21 @@
+/*
+  This file is part of TS software suite.
+
+  TS software suite is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  TS software suite is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with TS software suite.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #ifndef B24_CAPTION_H
 #define B24_CAPTION_H
 #ifdef __GNUG__
@@ -8,7 +26,7 @@ static const char *rcsid_Nbp = "@(#)$Id$";
 #endif /* IMPLEMENTING_B24_CAPTION */
 #include "BitStream.h"
 #include "ISO13818_PacketizedElementaryStream.h"
-#include "SystemClock.h"
+#include "ISO13818_SystemClock.h"
 
 
 /*---------------------------
@@ -31,16 +49,12 @@ class CaptionWriter {
    ProgramClock end_time() const;
    ProgramClock start_time;
    ProgramClock told_time;
-   int delay_by; // deci seconds
+   ProgramClock *delay_until;
    std::string caption;
 };
 
 inline void CaptionWriter::setBaseTime(const ProgramClock &clk) {
    base_time.set(clk);
-}
-
-inline void CaptionWriter::delay(int deciseconds) {
-   delay_by = deciseconds;
 }
 
 inline bool CaptionWriter::empty() const {
@@ -218,6 +232,8 @@ inline int B24_Caption_DataUnit::length() const {
  */
 class B24_CaptionStream : public ISO13818_PacketizedElementaryStream {
  public:
+   B24_CaptionStream() : ISO13818_PacketizedElementaryStream(StreamType_Caption) {
+   }
    virtual ElementaryStream *readObject(); // ByteArray returned have to be deleted by caller side
  protected:
 };

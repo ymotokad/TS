@@ -1,15 +1,28 @@
-/**
- *
- *
- */
+/*
+  This file is part of TS software suite.
+
+  TS software suite is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  TS software suite is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with TS software suite.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include "TransportStream.h"
-#include "MPEGStream.h"
-#include "ADTSStream.h"
+#include "ISO13818_TransportStream.h"
+#include "ISO13818_MPEGStream.h"
 #include "StdLogger.h"
 #include "Spool.h"
 
@@ -86,50 +99,17 @@ void ActivePID::reset() {
 }
 
 /*
- * Managing PID to PES
- */
-typedef std::map<uint16, PacketizedElementaryStream *, std::less<int> > PID2PESMap;
-class PESManager {
-public:
-   ~PESManager() {
-      for (PID2PESMap::iterator itr = pess.begin(); itr != pess.end(); itr++) {
-	 delete itr->second;
-      }
-   }
-   void clear() {
-      for (PID2PESMap::iterator itr = pess.begin(); itr != pess.end(); itr++) {
-	 delete itr->second;
-      }
-      pess.clear();
-   }
-   void setPES(uint16 pid, PacketizedElementaryStream *pes) {
-      pess[pid] = pes;
-   }
-   PacketizedElementaryStream *getPES(uint16 pid) {
-      PID2PESMap::const_iterator itr = pess.find(pid);
-      if (itr == pess.end()) return NULL;
-      return itr->second;
-   }
-private:
-   PID2PESMap pess;
-};
-
-/*
  * Callback function for PMT parse
  */
-void RegisterPIDFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+void RegisterPIDFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, int data_component_id, void *dtp) {
    ActivePID *pids = (ActivePID *)dtp;
    pids->activate(pid);
 }
-void MapPESFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+void MapPESFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, int data_component_id, void *dtp) {
    PESManager *pm = (PESManager *)dtp;
-   if (sttype == ProgramMapSection::sttype_VideoMPEG2) {
+   if (sttype == ISO13818_ProgramMapSection::sttype_VideoMPEG2) {
       if (pm->getPES(pid) == NULL) {
-	 pm->setPES(pid, new MPEGStream());
-      }
-   } else if (sttype == ProgramMapSection::sttype_AudioAAC) {
-      if (pm->getPES(pid) == NULL) {
-	 pm->setPES(pid, new ADTSStream());
+	 pm->setPES(pid, new ISO13818_MPEGStream());
       }
    }
 }
@@ -316,7 +296,7 @@ int main(int argc, char *argv[]) {
    }
 
    // Input stream
-   TransportStream ts;
+   ISO13818_TransportStream ts;
    ts.setOption_dump(opt_v);
    ts.setOption_showProgramInfo(opt_v);
    ts.setOption_writeTransportStream(NULL, false);
@@ -356,16 +336,21 @@ int main(int argc, char *argv[]) {
 	       /*----------------------------
 		* Decode PES
 		*/
-	       PacketizedElementaryStream *pes = pes_manager.getPES(ts.packet->PID());
+	       ISO13818_PacketizedElementaryStream *pes = pes_manager.getPES(ts.packet->PID());
 	       if (pes != NULL && ts.packet->has_payload()) {
-		  pes->put(ts.packet->getPayload());
-		  ElementaryStream *obj;
-		  while ((obj = pes->readObject()) != NULL) {
-		     if (obj->getStreamType() == obj->StreamType_MPEG) {
-			MPEGHeader *mpeg = (MPEGHeader *)obj;
+		  if (ts.packet->payload_unit_start_indicator()) {
+		     pes->startUnit(ts.getStreamTime(), ts.packet->getPayload());
+		  } else {
+		     pes->putUnit(ts.packet->getPayload());
+		  }
+		  if (pes->getStreamType() == ISO13818_PacketizedElementaryStream::StreamType_MPEG) {
+		     ElementaryStream *obj;
+		     while ((obj = pes->readObject()) != NULL) {
+			ISO13818_MPEGHeader *mpeg = (ISO13818_MPEGHeader *)obj;
+			//printf("PES get: \n"); mpeg->hexdump(2, &std::cout);
 			if (writer_status.is(WriterStatus::WaitingForGOP)) {
 			   uint8 c = mpeg->start_code();
-			   if (c == MPEGStream::StartCode_GroupOfPictures) {
+			   if (c == ISO13818_MPEGStream::StartCode_GroupOfPictures) {
 			      if (seconds_to_record > 0) {
 				 writer_status.startTimedWriting();
 			      } else {
@@ -376,12 +361,9 @@ int main(int argc, char *argv[]) {
 			} else {
 			   // Just discard it
 			}
-			//MPEGStream::dumpHeader(mpeg);
-		     } else if (obj->getStreamType() == obj->StreamType_ADTS) {
-			ADTSHeader *adts = (ADTSHeader *)obj;
-			//printf("DBGPES: adts sync=0x%04x\n", adts->sync_word());
+			//ISO13818_MPEGStream::dumpHeader(mpeg);
+			delete obj;
 		     }
-		     delete obj;
 		  }
 	       }
 	    }
@@ -400,7 +382,7 @@ int main(int argc, char *argv[]) {
 	     */
 	    if (program_id >= 0) {
 	       if (ts.isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
-		  ProgramAssociationSection *pat = ts.getLatestPAT();
+		  ISO13818_ProgramAssociationSection *pat = ts.getLatestPAT();
 		  int numPrograms = pat->numPrograms();
 		  for (int i = 0; i < numPrograms; i++) {
 		     uint16 pno = pat->program_number(i);
@@ -415,7 +397,7 @@ int main(int argc, char *argv[]) {
 		     if (pno == 0 || pno == program_id) {
 			uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
 			pidFilter.activate(pmt_pid);
-			ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
+			ISO13818_ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
 			assert(pmt != NULL);
 			assert(pmt->isComplete());
 			pidFilter.activate(pmt->PCR_PID());
@@ -430,10 +412,10 @@ int main(int argc, char *argv[]) {
 	     * Skip Leading Packets?
 	     */
 	    if (writer_status.is(WriterStatus::SkippingLeadingPackets)) {
-	       const ProgramClock *now = ts.getStreamTime();
+	       const ProgramClock now = ts.getStreamTime();
 	       if (skip_until == NULL) {
-		  if (now->isInitialized()) {
-		     ProgramClock *t = new ProgramClock(*now);
+		  if (now.isInitialized()) {
+		     ProgramClock *t = new ProgramClock(now);
 		     assert(seconds_to_skip > 0);
 		     t->append(seconds_to_skip);
 		     skip_until = t;
@@ -446,8 +428,8 @@ int main(int argc, char *argv[]) {
 		  packet_counter++;
 		  continue;
 	       } else {
-		  assert(now->isInitialized());
-		  if (skip_until->isGreaterThanOrEqualTo(*now)) {
+		  assert(now.isInitialized());
+		  if (skip_until->isGreaterThanOrEqualTo(now)) {
 		     packet_counter++;
 		     continue;
 		  } else {
@@ -462,10 +444,10 @@ int main(int argc, char *argv[]) {
 	     */
 	    if (writer_status.is(WriterStatus::WritingByTime)) {
 	       assert(seconds_to_record != 0);
-	       const ProgramClock *now = ts.getStreamTime();
+	       const ProgramClock now = ts.getStreamTime();
 	       if (record_until == NULL) {
-		  if (now->isInitialized()) {
-		     record_until = new ProgramClock(*now);
+		  if (now.isInitialized()) {
+		     record_until = new ProgramClock(now);
 		     record_until->append(seconds_to_record);
 		  } else {
 		     if (packet_counter > MAX_PACKETS_WITHOUT_PCR) {
@@ -474,7 +456,7 @@ int main(int argc, char *argv[]) {
 		     }
 		  }
 	       } else {
-		  if (!record_until->isGreaterThanOrEqualTo(*now)) {
+		  if (!record_until->isGreaterThanOrEqualTo(now)) {
 		     delete record_until;
 		     record_until = NULL;
 		     writer_status.stopWriting();

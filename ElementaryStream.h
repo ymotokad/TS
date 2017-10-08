@@ -1,3 +1,21 @@
+/*
+  This file is part of TS software suite.
+
+  TS software suite is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  TS software suite is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with TS software suite.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #ifndef ELEMENTARYSTREAM_H
 #define ELEMENTARYSTREAM_H
 #ifdef IMPLEMENTING_ELEMENTARYSTREAM
@@ -11,6 +29,7 @@ static const char *rcsid_ElementaryStream = "@(#)$Id$";
  * ElementaryStream
  */
 class ElementaryStream : public BitStream {
+#if 1 // Whole content should be remove.
  public:
    int getStreamType() const {
       return streamtype;
@@ -23,6 +42,7 @@ class ElementaryStream : public BitStream {
       streamtype = type; 
    }
    int streamtype;
+#endif
 };
 
 

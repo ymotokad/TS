@@ -1,14 +1,27 @@
-/**
- *
- *
- */
+/*
+  This file is part of TS software suite.
+
+  TS software suite is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  TS software suite is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with TS software suite.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include "TransportStream.h"
-#include "MPEGStream.h"
+#include "ISO13818_TransportStream.h"
 #include "StdLogger.h"
 #include "Spool.h"
 
@@ -60,7 +73,7 @@ void ActivePID::reset() {
 /*
  * Callback function for PMT parse
  */
-static void RegisterPIDFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+static void RegisterPIDFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, int data_component_id, void *dtp) {
    ActivePID *pids = (ActivePID *)dtp;
    pids->activate(pid);
 }
@@ -129,7 +142,7 @@ int main(int argc, char *argv[]) {
    }
 
    // Input stream
-   TransportStream ts;
+   ISO13818_TransportStream ts;
    ts.setOption_writeTransportStream(NULL, false);
    
    ifs.exceptions(std::ios::badbit);
@@ -159,7 +172,7 @@ int main(int argc, char *argv[]) {
 	     * Filterings
 	     */
 	    if (ts.isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
-	       ProgramAssociationSection *pat = ts.getLatestPAT();
+	       ISO13818_ProgramAssociationSection *pat = ts.getLatestPAT();
 	       int numPrograms = pat->numPrograms();
 	       for (int i = 0; i < numPrograms; i++) {
 		  uint16 pno = pat->program_number(i);
@@ -174,7 +187,7 @@ int main(int argc, char *argv[]) {
 		  if (pno == 0 || pno == program_id) {
 		     uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
 		     pidFilter.activate(pmt_pid);
-		     ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
+		     ISO13818_ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
 		     assert(pmt != NULL);
 		     assert(pmt->isComplete());
 		     pidFilter.activate(pmt->PCR_PID());

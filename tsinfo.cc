@@ -1,14 +1,28 @@
-/**
- *
- *
- */
+/*
+  This file is part of TS software suite.
+
+  TS software suite is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  TS software suite is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with TS software suite.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
 #include "StdLogger.h"
-#include "TransportStream.h"
+#include "ISO13818_TransportStream.h"
 
 static char rcsid[] = "@(#)$Id$";
 
@@ -213,11 +227,11 @@ private:
 /*
  * Callback functions
  */
-static void setProgramInfo(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+static void setProgramInfo(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, int data_component_id, void *dtp) {
    PIDManager *pidmgr = (PIDManager *)dtp;
    pidmgr->setProgramByPID(pid, program);
 }
-static void setProgramStream(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+static void setProgramStream(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, int data_component_id, void *dtp) {
    ProgramInfo *pi = (ProgramInfo *)dtp;
    pi->addStream(component_tag);
 }
@@ -315,7 +329,7 @@ int main(int argc, char *argv[]) {
    int packet_counter = 0;
 
    // Input stream
-   TransportStream ts;
+   ISO13818_TransportStream ts;
    ts.setOption_dump(opt_v);
    ts.setOption_showProgramInfo(opt_s);
    ifs.exceptions(std::ios::badbit);
@@ -343,7 +357,7 @@ int main(int argc, char *argv[]) {
 	    for (int i = 0; i < ts.programs_updated.size(); i++) {
 	       uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
 	       if (pmt_pid != 0) {
-		  ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
+		  ISO13818_ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
 		  assert(pmt->isComplete());
 		  pmt->for_all_streams(setProgramInfo, &pid_manager);
 
@@ -355,7 +369,7 @@ int main(int argc, char *argv[]) {
 	 }
 
 	 if (ts.isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
-	    const EventInformationTable *eit = ts.getEventInformationTabale();
+	    const B10_EventInformationTable *eit = ts.getEventInformationTabale();
 	    assert(eit != NULL);
 	    ComponentInfo *cip = prog_manager.getComponentInfo(eit->service_id());
 	    if (cip == NULL) {

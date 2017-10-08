@@ -1,16 +1,32 @@
-/**
- *
- *
- */
+/*
+  This file is part of TS software suite.
+
+  TS software suite is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  TS software suite is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with TS software suite.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include "TransportStream.h"
+#include "ISO13818_TransportStream.h"
 #include "StdLogger.h"
 #include "Spool.h"
 #include "B24_Caption.h"
+#include "B10_Descriptors.h"
+#include "ISO13818_MPEGStream.h"
 
 static char rcsid[] = "@(#)$Id$";
 
@@ -26,11 +42,21 @@ static void usage(const char *argv0) {
 /*
  * Callback function for PMT parse
  */
-static void MapPESFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, void *dtp) {
+static void MapPESFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 component_tag, int data_component_id, void *dtp) {
    PESManager *pm = (PESManager *)dtp;
-   if (sttype == ProgramMapSection::sttype_Data) {
-      if (component_tag == 0x30) {
-	 pm->setPES(pid, new B24_CaptionStream());
+   ISO13818_PacketizedElementaryStream *oldpes = pm->getPES(pid);
+   ISO13818_PacketizedElementaryStream *newpes = NULL;
+   if (sttype == ISO13818_ProgramMapSection::sttype_Data) {
+      if (data_component_id == B10_Desc_DataComponent::id_B24_caption) {
+	 newpes = new B24_CaptionStream();
+      }
+   }
+
+   if (newpes != NULL) {
+      if (oldpes == NULL || oldpes->getStreamType() != newpes->getStreamType()) {
+	 pm->setPES(pid, newpes);
+      } else {
+	 delete newpes;
       }
    }
 }
@@ -113,7 +139,7 @@ int main(int argc, char *argv[]) {
    }
 
    // Input stream
-   TransportStream ts;
+   ISO13818_TransportStream ts;
    ts.setOption_writeTransportStream(NULL, false);
    ts.setOption_dump(opt_d);
    ts.setOption_showProgramInfo(opt_d);
@@ -140,9 +166,9 @@ int main(int argc, char *argv[]) {
 	 if (ts.packet) {
 
 	    if (!base_time_initialized) {
-	       const ProgramClock *tsclock = ts.getStreamTime();
-	       if (tsclock->isInitialized()) {
-		  writer.setBaseTime(*tsclock);
+	       const ProgramClock tsclock = ts.getStreamTime();
+	       if (tsclock.isInitialized()) {
+		  writer.setBaseTime(tsclock);
 		  base_time_initialized = true;
 	       }
 	    }
@@ -155,7 +181,7 @@ int main(int argc, char *argv[]) {
 		  uint16 pno = ts.programs_updated[i];
 		  if (pno == 0 || pno == program_id || program_id == -1) {
 		     uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
-		     ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
+		     ISO13818_ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
 		     assert(pmt != NULL);
 		     assert(pmt->isComplete());
 		     pmt->for_all_streams(MapPESFromPMT, &pes_manager);
@@ -168,10 +194,14 @@ int main(int argc, char *argv[]) {
 	     */
 	    ISO13818_PacketizedElementaryStream *pes = pes_manager.getPES(ts.packet->PID());
 	    if (pes != NULL && ts.packet->has_payload()) {
-	       pes->put(*ts.getStreamTime(), ts.packet->getPayload());
-	       ElementaryStream *obj;
-	       if ((obj = pes->readObject()) != NULL) {
-		  if (obj->getStreamType() == obj->StreamType_Caption) {
+	       if (ts.packet->payload_unit_start_indicator()) {
+		  pes->startUnit(ts.getStreamTime(), ts.packet->getPayload());
+	       } else {
+		  pes->putUnit(ts.packet->getPayload());
+	       }
+	       if (pes->getStreamType() == ISO13818_PacketizedElementaryStream::StreamType_Caption) {
+		  ElementaryStream *obj;
+		  if ((obj = pes->readObject()) != NULL) {
 		     try {
 			B24_Caption_DataGroup *cdg = (B24_Caption_DataGroup *)obj;
 			if (cdg->data_group_id() == 0x0 || cdg->data_group_id() == 0x20) {
@@ -184,8 +214,8 @@ int main(int argc, char *argv[]) {
 		     } catch(ByteArrayOverflowException &e) {
 			logger->warning("B24 Caption: the length of payload (%d) is too short...ignoring", ts.packet->getPayload()->length());
 		     }
+		     delete obj;
 		  }
-		  delete obj;
 	       }
 	    }
 	 }

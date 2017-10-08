@@ -1,9 +1,21 @@
 /*
- * B24_Caption - 
- *
- * 
- *
- */
+  This file is part of TS software suite.
+
+  TS software suite is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  TS software suite is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with TS software suite.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 static char rcsid[] = "@(#)$Id$";
 #ifdef __GNUG__
 #pragma implementation
@@ -985,14 +997,17 @@ static std::string euc2utf8(unsigned char p0, unsigned char p1) {
  * B24_CaptionStream class
  */
 ElementaryStream *B24_CaptionStream::readObject() {
-   if (!data_completed) return NULL;
-
+   if (!isReadable()) return NULL;
+   ISO13818_PES_Packet *packet = plist.front();
+   
+   packet->moveDataPointer(3); // I really don't know why this needed...
    B24_Caption_DataGroup *ret = new B24_Caption_DataGroup();
-   int len = dataLength();
-   ByteArray *buf = read(0, len);
+   ByteArray *buf = packet->read(packet->dataLength());
    ret->setBuffer(buf);
 
-   clear();
+   plist.pop_front();
+   delete packet;
+   
    return ret;
 }
    
