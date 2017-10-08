@@ -33,10 +33,10 @@ static char rcsid[] = "@(#)$Id$";
 Logger *logger;
 
 static void usage(const char *argv0) {
-   std::cerr << "usage: " << argv0 << " [options]" << " -i input.ts -o output.ts" << std::endl;
+   std::cerr << "usage: " << argv0 << " [options]" << " -i input.ts -o output.ass" << std::endl;
    std::cerr << " options:" << std::endl;
-   std::cerr << "   -d            print debug information" << std::endl;
-   std::cerr << "   -p program_id add specified program to output stream" << std::endl;
+   std::cerr << "   -d             print debug information" << std::endl;
+   std::cerr << "   -p program_id  select a program to extract captions" << std::endl;
 }
 
 /*
