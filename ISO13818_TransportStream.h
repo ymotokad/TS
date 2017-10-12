@@ -177,10 +177,6 @@ inline void ISO13818_TransportStream::clearTSEvent() {
    tsEvent = 0;
 }
 
-inline bool ISO13818_TransportStream::isActiveTSEvent(TSEvent flag) const {
-   return ((tsEvent & flag) != 0);
-}
-
 inline bool ISO13818_TransportStream::checkTSEvent(TSEvent flag) const {
    return ((tsEvent & flag) != 0);
 }
