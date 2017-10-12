@@ -53,10 +53,13 @@ static void MapPESFromPMT(uint16 pid, uint16 program, uint8 sttype, uint8 compon
    }
 
    if (newpes != NULL) {
-      if (oldpes == NULL || oldpes->getStreamType() != newpes->getStreamType()) {
+      if (oldpes == NULL) {
 	 pm->setPES(pid, newpes);
       } else {
-	 delete newpes;
+	 if (oldpes->getStreamType() != newpes->getStreamType()) {
+	    delete oldpes;
+	    pm->setPES(pid, newpes);
+	 }
       }
    }
 }
@@ -200,21 +203,16 @@ int main(int argc, char *argv[]) {
 		  pes->putUnit(ts.packet->getPayload());
 	       }
 	       if (pes->getStreamType() == ISO13818_PacketizedElementaryStream::StreamType_Caption) {
-		  ElementaryStream *obj;
-		  if ((obj = pes->readObject()) != NULL) {
-		     try {
-			B24_Caption_DataGroup *cdg = (B24_Caption_DataGroup *)obj;
-			if (cdg->data_group_id() == 0x0 || cdg->data_group_id() == 0x20) {
-			   //B24_Caption_CaptionManagementData cmd(*cdg);
-			} else {
-			   B24_Caption_CaptionData cd(*cdg);
-			   writer.tellTime(pes->getPacketStartTime());
-			   cd.convert(&writer);
-			}
-		     } catch(ByteArrayOverflowException &e) {
-			logger->warning("B24 Caption: the length of payload (%d) is too short...ignoring", ts.packet->getPayload()->length());
+		  B24_Caption_DataGroup *cdg = (B24_Caption_DataGroup *)pes->readObject();
+		  if (cdg != NULL) {
+		     if (cdg->data_group_id() == 0x0 || cdg->data_group_id() == 0x20) {
+			//B24_Caption_CaptionManagementData cmd(*cdg);
+		     } else {
+			B24_Caption_CaptionData cd(*cdg);
+			writer.tellTime(pes->getPacketStartTime());
+			cd.convert(&writer);
 		     }
-		     delete obj;
+		     delete cdg;
 		  }
 	       }
 	    }
@@ -223,7 +221,7 @@ int main(int argc, char *argv[]) {
 	 /*----------------------------
 	  * Post processings
 	  */
-	 if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
+	 if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
 	    ts.programs_updated.clear();
 	 }
       }
