@@ -353,7 +353,7 @@ int main(int argc, char *argv[]) {
 
 	 pid_manager.count(ts.packet->PID());
 
-	 if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
+	 if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
 	    for (int i = 0; i < ts.programs_updated.size(); i++) {
 	       uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
 	       if (pmt_pid != 0) {
@@ -368,7 +368,7 @@ int main(int argc, char *argv[]) {
 	    }
 	 }
 
-	 if (ts.isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
+	 if (ts.checkTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
 	    const B10_EventInformationTable *eit = ts.getEventInformationTabale();
 	    assert(eit != NULL);
 	    ComponentInfo *cip = prog_manager.getComponentInfo(eit->service_id());
@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
 	 /*----------------------------
 	  * Post processings
 	  */
-	 if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
+	 if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
 	    ts.programs_updated.clear();
 	 }
 

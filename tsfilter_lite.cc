@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
 	    /*----------------------------
 	     * Filterings
 	     */
-	    if (ts.isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
+	    if (ts.checkTSEvent(TSEvent_Update_ProgramAssociationTable)) {
 	       ISO13818_ProgramAssociationSection *pat = ts.getLatestPAT();
 	       int numPrograms = pat->numPrograms();
 	       for (int i = 0; i < numPrograms; i++) {
@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
 		  }
 	       }
 	    }
-	    if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
+	    if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
 	       for (int i = 0; i < ts.programs_updated.size(); i++) {
 		  uint16 pno = ts.programs_updated[i];
 		  if (pno == 0 || pno == program_id) {
@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
 	 /*----------------------------
 	  * Post processings
 	  */
-	 if (ts.isActiveTSEvent(TSEvent_Update_ProgramMapTable)) {
+	 if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
 	    ts.programs_updated.clear();
 	 }
       }
