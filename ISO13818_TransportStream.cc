@@ -351,7 +351,7 @@ void ISO13818_TransportStream::loadProgramAssociationTable(const ISO13818_Sectio
 	 setPIDByProgram(pno, pat.program_map_PID(i));
       }
    }
-   if (loadOption_showProgramInfo && isActiveTSEvent(TSEvent_Update_ProgramAssociationTable)) {
+   if (loadOption_showProgramInfo && checkTSEvent(TSEvent_Update_ProgramAssociationTable)) {
       int numPrograms = pat.numPrograms();
       char buf[20];
       printf("*** [%s] Program Association Table ***\n", sysclock.getRelativeTime().toString(buf));
@@ -450,7 +450,7 @@ void ISO13818_TransportStream::loadEventInformationTable(const ISO13818_Section 
 	 }
       }
       if (loadOption_showProgramInfo) {
-	 if (isActiveTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
+	 if (checkTSEvent(TSEvent_Update_EventInformationTable_Actual_Present)) {
 	    char buf[20];
 	    printf("*** [%s] ", sysclock.getRelativeTime().toString(buf));
 	    eit->dump(&std::cout);
