@@ -380,30 +380,28 @@ int main(int argc, char *argv[]) {
 	    /*----------------------------
 	     * Filterings
 	     */
-	    if (program_id >= 0) {
-	       if (ts.checkTSEvent(TSEvent_Update_ProgramAssociationTable)) {
-		  ISO13818_ProgramAssociationSection *pat = ts.getLatestPAT();
-		  int numPrograms = pat->numPrograms();
-		  for (int i = 0; i < numPrograms; i++) {
-		     uint16 pno = pat->program_number(i);
-		     if (pno == 0 || pno == program_id) {
-			pidFilter.activate(pat->program_map_PID(i));
-		     }
+	    if (ts.checkTSEvent(TSEvent_Update_ProgramAssociationTable)) {
+	       ISO13818_ProgramAssociationSection *pat = ts.getLatestPAT();
+	       int numPrograms = pat->numPrograms();
+	       for (int i = 0; i < numPrograms; i++) {
+		  uint16 pno = pat->program_number(i);
+		  if (program_id < 0 || pno == 0 || pno == program_id) {
+		     pidFilter.activate(pat->program_map_PID(i));
 		  }
 	       }
-	       if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
-		  for (int i = 0; i < ts.programs_updated.size(); i++) {
-		     uint16 pno = ts.programs_updated[i];
-		     if (pno == 0 || pno == program_id) {
-			uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
-			pidFilter.activate(pmt_pid);
-			ISO13818_ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
-			assert(pmt != NULL);
-			assert(pmt->isComplete());
-			pidFilter.activate(pmt->PCR_PID());
-			pmt->for_all_streams(RegisterPIDFromPMT, &pidFilter);
-			pmt->for_all_streams(MapPESFromPMT, &pes_manager);
-		     }
+	    }
+	    if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
+	       for (int i = 0; i < ts.programs_updated.size(); i++) {
+		  uint16 pno = ts.programs_updated[i];
+		  if (program_id < 0 || pno == 0 || pno == program_id) {
+		     uint16 pmt_pid = ts.getPIDByProgram(ts.programs_updated[i]);
+		     pidFilter.activate(pmt_pid);
+		     ISO13818_ProgramMapSection *pmt = ts.getProgramMapTableByPID(pmt_pid);
+		     assert(pmt != NULL);
+		     assert(pmt->isComplete());
+		     pidFilter.activate(pmt->PCR_PID());
+		     pmt->for_all_streams(RegisterPIDFromPMT, &pidFilter);
+		     pmt->for_all_streams(MapPESFromPMT, &pes_manager);
 		  }
 	       }
 	    }
