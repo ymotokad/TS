@@ -165,51 +165,55 @@ int ISO13818_TransportStream::decode(BufferedInputStream *isp) {
       sysclock.tick();
    }
 
-   // Load carry overs
-   ISO13818_Section *prev = getIncompleteSection(pid);
-   if (prev != NULL) {
-      if (packet->has_payload() && packet->getPayload()->length() > 1) {
-	 int prevlen;
-	 if (packet->payload_unit_start_indicator()) {
-	    int pointer_field = packet->getPayload()->at(0);
-	    prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 1, pointer_field);
-	 } else {
-	    prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 0);
-	 }
-	 if (prevlen < 0) {
-	    logger->warning("ISO13818_TransportStream::decode(): cc (%d) is not subsequent to prev (%d)", packet->continuity_counter(), prev->last_continuity_counter());
-	 }
-	 if (prev->isComplete()) {
-	    loadTable(pid, *prev);
-	    unsetIncompleteSection(pid);
-	    delete prev;
+   try {
+      // Load carry overs
+      ISO13818_Section *prev = getIncompleteSection(pid);
+      if (prev != NULL) {
+	 if (packet->has_payload() && packet->getPayload()->length() > 1) {
+	    int prevlen;
+	    if (packet->payload_unit_start_indicator()) {
+	       int pointer_field = packet->getPayload()->at(0);
+	       prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 1, pointer_field);
+	    } else {
+	       prevlen = prev->append(packet->continuity_counter(), *(packet->getPayload()), 0);
+	    }
+	    if (prevlen < 0) {
+	       logger->warning("ISO13818_TransportStream::decode(): cc (%d) is not subsequent to prev (%d)", packet->continuity_counter(), prev->last_continuity_counter());
+	    }
+	    if (prev->isComplete()) {
+	       loadTable(pid, *prev);
+	       unsetIncompleteSection(pid);
+	       delete prev;
+	    }
 	 }
       }
-   }
 
-   // Process packet
-   if (pid == PID_ProgramAssociationTable ||
-       pid == PID_ServiceDescriptionTable ||
-       pid == PID_EventInformationTable ||
-       pid == PID_TimeDateSection ||
-       isProgramMapTablePID(pid)) {
-      if (packet->payload_unit_start_indicator() && packet->has_payload() && packet->getPayload()->length() > 1) {
-	 int pointer_field = packet->getPayload()->at(0);
-	 ISO13818_Section *sec = new ISO13818_Section(packet->continuity_counter());
-	 if (sec == NULL) return -1;
-	 sec->setBuffer(packet->getPayload()->subarray(1 + pointer_field));
-	 if (sec->isComplete()) {
-	    loadTable(pid, *sec);
-	    delete sec;
+      // Process packet
+      if (pid == PID_ProgramAssociationTable ||
+	  pid == PID_ServiceDescriptionTable ||
+	  pid == PID_EventInformationTable ||
+	  pid == PID_TimeDateSection ||
+	  isProgramMapTablePID(pid)) {
+	 if (packet->payload_unit_start_indicator() && packet->has_payload() && packet->getPayload()->length() > 1) {
+	    int pointer_field = packet->getPayload()->at(0);
+	    ISO13818_Section *sec = new ISO13818_Section(packet->continuity_counter());
+	    if (sec == NULL) return -1;
+	    sec->setBuffer(packet->getPayload()->subarray(1 + pointer_field));
+	    if (sec->isComplete()) {
+	       loadTable(pid, *sec);
+	       delete sec;
+	    } else {
+	       //assert(getIncompleteSection(pid) == NULL);
+	       setIncompleteSection(pid, sec);
+	    }
 	 } else {
-	    //assert(getIncompleteSection(pid) == NULL);
-	    setIncompleteSection(pid, sec);
+	    // There is a case that TS start captured at a middle of a program
 	 }
       } else {
-	 // There is a case that TS start captured at a middle of a program
+	 // PES
       }
-   } else {
-      // PES
+   } catch(ByteArrayOverflowException &e) {
+      logger->warning("ISO13818_TransportStream::decode(): buffer over loaded");
    }
 
    return packet->bufferLength();
