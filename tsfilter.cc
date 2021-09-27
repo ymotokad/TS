@@ -40,6 +40,7 @@ static void usage(const char *argv0) {
    std::cerr << "   -p program_id add specified program to output stream" << std::endl;
    std::cerr << "   -e            add EIT/SDT to output stream" << std::endl;
    std::cerr << "   -g            sybchronize with GOP at begining" << std::endl;
+   std::cerr << "   -m            skip until the first TimeDateSection, which usually transfered every 5 seconds" << std::endl;
    std::cerr << "   -k N          probe leading N packets and skip until begining of the program, which is judged by Program Map Table change" << std::endl;
    std::cerr << "   -s seconds    skip begining packets for specified seconds" << std::endl;
    std::cerr << "   -t seconds    stop after writing specified seconds of packets to output stream" << std::endl;
@@ -147,6 +148,9 @@ public:
    void waitForGOP() {
       status = WaitingForGOP;
    }
+   void waitForTDS() {
+      status = WaitingForTDS;
+   }
    void startWriting() {
       status = Writing;
    }
@@ -164,6 +168,7 @@ public:
    static const int Writing			= (1 << 4);
    static const int WritingByTime		= (1 << 5);
    static const int WritingCompleted		= (1 << 6);
+   static const int WaitingForTDS		= (1 << 7);
 
 protected:
    int status;
@@ -181,6 +186,7 @@ int main(int argc, char *argv[]) {
    bool opt_s = false;
    bool opt_e = false;
    bool opt_g = false;
+   bool opt_m = false;
    char *opt_i = NULL;
    char *opt_o = NULL;
    char *opt_r = NULL;
@@ -192,7 +198,7 @@ int main(int argc, char *argv[]) {
 
    // Parse command line options.
    int option_char;
-   while ((option_char = getopt(argc, argv, "vdi:o:p:egk:s:t:r:")) != -1) {
+   while ((option_char = getopt(argc, argv, "vdi:o:p:egmk:s:t:r:")) != -1) {
       switch (option_char) {
       case 'v':
 	 opt_v = true;
@@ -205,6 +211,9 @@ int main(int argc, char *argv[]) {
 	 break;
       case 'g':
 	 opt_g = true;
+	 break;
+      case 'm':
+	 opt_m = true;
 	 break;
       case 'i':
 	 opt_i = optarg;
@@ -236,7 +245,7 @@ int main(int argc, char *argv[]) {
    argv0 = argv[0];
    argc -= optind;
    argv += optind;
-   if (argc != 0 || opt_i == NULL || opt_o == NULL) {
+   if (argc != 0) {
       usage(argv0);
       return 1;
    }
@@ -252,6 +261,8 @@ int main(int argc, char *argv[]) {
       writer_status.waitForPMT();
    } else if (opt_g) {
       writer_status.waitForGOP();
+   } else if (opt_m) {
+      writer_status.waitForTDS();
    } else if (seconds_to_record > 0) {
       writer_status.startTimedWriting();
    } else {
@@ -266,22 +277,29 @@ int main(int argc, char *argv[]) {
    logger = &lgr;
 
    // Open files
-   std::ifstream ifs(opt_i);
-   if (!ifs) {
-      std::cerr << argv0 << ": error openning file " << opt_i << std::endl;
-      return 1;
+   std::istream *ifsp = NULL;
+   if (opt_i == NULL) {
+      ifsp = &std::cin;
+   } else {
+      ifsp = new std::ifstream(opt_i);
+      if (!ifsp) {
+	 std::cerr << argv0 << ": error openning file " << opt_i << std::endl;
+	 return 1;
+      }
    }
-   BufferedInputStream *bisp = new BufferedInputStream(&ifs);
-   std::ofstream ofs;
-   if (opt_o != NULL) {
-      ofs.open(opt_o);
-      if (!ofs) {
+   BufferedInputStream *bisp = new BufferedInputStream(ifsp);
+   std::ostream *ofsp = NULL;
+   if (opt_o == NULL) {
+      ofsp = &std::cout;
+   } else {
+      ofsp = new std::ofstream(opt_o);
+      if (!ofsp) {
 	 std::cerr << argv0 << ": error openning file " << opt_o << std::endl;
 	 return 1;
       }
-      if (probe_size > 0) {
-	 spool = new ByteArraySpool(probe_size);
-      }
+   }
+   if (probe_size > 0) {
+      spool = new ByteArraySpool(probe_size);
    }
    std::ofstream rfs;
    int rfs_remainingBytes = 0;
@@ -301,17 +319,15 @@ int main(int argc, char *argv[]) {
    ts.setOption_showProgramInfo(opt_v);
    ts.setOption_writeTransportStream(NULL, false);
    
-   ifs.exceptions(std::ios::badbit);
-   ofs.exceptions(std::ios::badbit);
+   ifsp->exceptions(std::ios::badbit);
+   ofsp->exceptions(std::ios::badbit);
    try {
       ActivePID pidFilter;
-      if (opt_o) {
-	 pidFilter.activate(PID_ProgramAssociationTable);
-	 pidFilter.activate(PID_TimeDateSection);
-	 if (opt_e) {
-	    pidFilter.activate(PID_EventInformationTable);
-	    pidFilter.activate(PID_ServiceDescriptionTable);
-	 }
+      pidFilter.activate(PID_ProgramAssociationTable);
+      pidFilter.activate(PID_TimeDateSection);
+      if (opt_e) {
+	 pidFilter.activate(PID_EventInformationTable);
+	 pidFilter.activate(PID_ServiceDescriptionTable);
       }
 
       int packet_counter = 0;
@@ -437,6 +453,20 @@ int main(int argc, char *argv[]) {
 		  }
 	       }
 	    }
+
+	    /*----------------------------
+	     * Skip until TimeDateSection?
+	     */
+	    if (writer_status.is(WriterStatus::WaitingForTDS)) {
+	       if (ts.checkTSEvent(TSEvent_Update_Time)) {
+		  if (seconds_to_record > 0) {
+		     writer_status.startTimedWriting();
+		  } else {
+		     writer_status.startWriting();
+		  }
+	       }
+	    }
+
 	    /*----------------------------
 	     * Check Write Timer
 	     */
@@ -478,7 +508,7 @@ int main(int argc, char *argv[]) {
 			const ByteArray *rawdata = spool->dataAt(i);
 			bisp->unread(*rawdata);
 			//assert(rawdata->length() == SIZEOF_PACKET);
-			//ofs.write((const char *)rawdata->part(), rawdata->length());
+			//ofsp->write((const char *)rawdata->part(), rawdata->length());
 		     }
 		     delete spool;
 		     spool = NULL;
@@ -496,7 +526,7 @@ int main(int argc, char *argv[]) {
 	       if (pidFilter.isActive(ts.packet->PID())) {
 		  const ByteArray *rawdata = ts.packet->getRawdata();
 		  assert(rawdata->length() == SIZEOF_PACKET);
-		  ofs.write((const char *)rawdata->part(), rawdata->length());
+		  ofsp->write((const char *)rawdata->part(), rawdata->length());
 	       }
 	    }
 	 }
@@ -515,18 +545,23 @@ int main(int argc, char *argv[]) {
       return 1;
    }
    
-   if (opt_o) {
-      if (spool != NULL) {
-	 for (int i = 0; i < spool->length(); i++) {
-	    const ByteArray *rawdata = spool->dataAt(i);
-	    ofs.write((const char *)rawdata->part(), rawdata->length());
-	 }
-	 delete spool;
+   if (spool != NULL) {
+      for (int i = 0; i < spool->length(); i++) {
+	 const ByteArray *rawdata = spool->dataAt(i);
+	 ofsp->write((const char *)rawdata->part(), rawdata->length());
       }
-      ofs.close();
+      delete spool;
    }
-   rfs.close();
-   ifs.close();
+   if (opt_r != NULL) {
+      rfs.close();
+   }
+   if (opt_i) {
+      delete ifsp;
+   }
+   ofsp->flush();
+   if (opt_o) {
+      delete ofsp;
+   }
 
    return 0;
 }
