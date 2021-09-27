@@ -158,6 +158,11 @@ int ISO13818_TransportStream::decode(BufferedInputStream *isp) {
       const ISO13818_AdaptationField *ap = packet->getAdaptationField();
       if (ap != NULL && ap->hasCompletePCR()) {
 	 sysclock.sync(pid, ap->getBase(), ap->getExt());
+#if 0
+	 std::time_t t = sysclock.getAbsoluteTime();
+	 const tm* localTime = localtime(&t);
+	 printf("*** Adaptation Field found, time is [%02d:%02d:%02d]\n", localTime->tm_hour, localTime->tm_min, localTime->tm_sec);
+#endif
       } else {
 	 sysclock.tick();
       }
