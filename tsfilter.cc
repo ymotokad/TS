@@ -389,7 +389,45 @@ int main(int argc, char *argv[]) {
 	    /*----------------------------
 	     * Actions by status
 	     */
-	    if (writer_status.is(WriterStatus::WaitingForPMT)) {
+	    if (writer_status.is(WriterStatus::Writing)) {
+	       /*----------------------------
+		* Write output stream
+		*/
+	       if (pidFilter.isActive(ts.packet->PID())) {
+		  const ByteArray *rawdata = ts.packet->getRawdata();
+		  assert(rawdata->length() == SIZEOF_PACKET);
+		  ofsp->write((const char *)rawdata->part(), rawdata->length());
+	       }
+	    } else if (writer_status.is(WriterStatus::WritingByTime)) {
+	       /*----------------------------
+		* Check Write Timer
+		*/
+	       assert(seconds_to_record != 0);
+	       const ProgramClock now = ts.getStreamTime();
+	       if (record_until == NULL) {
+		  if (now.isInitialized()) {
+		     record_until = new ProgramClock(now);
+		     record_until->append(seconds_to_record);
+		  } else {
+		     if (packet_counter > MAX_PACKETS_WITHOUT_PCR) {
+			logger->error("Couldn't find PCR in %d packets.", MAX_PACKETS_WITHOUT_PCR);
+			return 1;
+		     }
+		  }
+	       } else {
+		  if (!record_until->isGreaterThanOrEqualTo(now)) {
+		     delete record_until;
+		     record_until = NULL;
+		     writer_status.stopWriting();
+		     break;
+		  }
+	       }
+	       if (pidFilter.isActive(ts.packet->PID())) {
+		  const ByteArray *rawdata = ts.packet->getRawdata();
+		  assert(rawdata->length() == SIZEOF_PACKET);
+		  ofsp->write((const char *)rawdata->part(), rawdata->length());
+	       }
+	    } else if (writer_status.is(WriterStatus::WaitingForPMT)) {
 	       /*----------------------------
 		* Spool
 		*/
@@ -485,44 +523,6 @@ int main(int argc, char *argv[]) {
 		  } else {
 		     writer_status.startWriting();
 		  }
-	       }
-	    } else if (writer_status.is(WriterStatus::WritingByTime)) {
-	       /*----------------------------
-		* Check Write Timer
-		*/
-	       assert(seconds_to_record != 0);
-	       const ProgramClock now = ts.getStreamTime();
-	       if (record_until == NULL) {
-		  if (now.isInitialized()) {
-		     record_until = new ProgramClock(now);
-		     record_until->append(seconds_to_record);
-		  } else {
-		     if (packet_counter > MAX_PACKETS_WITHOUT_PCR) {
-			logger->error("Couldn't find PCR in %d packets.", MAX_PACKETS_WITHOUT_PCR);
-			return 1;
-		     }
-		  }
-	       } else {
-		  if (!record_until->isGreaterThanOrEqualTo(now)) {
-		     delete record_until;
-		     record_until = NULL;
-		     writer_status.stopWriting();
-		     break;
-		  }
-	       }
-	       if (pidFilter.isActive(ts.packet->PID())) {
-		  const ByteArray *rawdata = ts.packet->getRawdata();
-		  assert(rawdata->length() == SIZEOF_PACKET);
-		  ofsp->write((const char *)rawdata->part(), rawdata->length());
-	       }
-	    } else if (writer_status.is(WriterStatus::Writing)) {
-	       /*----------------------------
-		* Write output stream
-		*/
-	       if (pidFilter.isActive(ts.packet->PID())) {
-		  const ByteArray *rawdata = ts.packet->getRawdata();
-		  assert(rawdata->length() == SIZEOF_PACKET);
-		  ofsp->write((const char *)rawdata->part(), rawdata->length());
 	       }
 	    }
 	 }
