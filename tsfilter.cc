@@ -336,7 +336,6 @@ int main(int argc, char *argv[]) {
       PESManager pes_manager;
       
       while (!bisp->eof()) {
-
 	 /*----------------------------
 	  * Decode input stream
 	  */
@@ -348,41 +347,6 @@ int main(int argc, char *argv[]) {
 	 }
 
 	 if (ts.packet) {
-	    if (writer_status.is(WriterStatus::WaitingForGOP)) {
-	       /*----------------------------
-		* Decode PES
-		*/
-	       ISO13818_PacketizedElementaryStream *pes = pes_manager.getPES(ts.packet->PID());
-	       if (pes != NULL && ts.packet->has_payload()) {
-		  if (ts.packet->payload_unit_start_indicator()) {
-		     pes->startUnit(ts.getStreamTime(), ts.packet->getPayload());
-		  } else {
-		     pes->putUnit(ts.packet->getPayload());
-		  }
-		  if (pes->getStreamType() == ISO13818_PacketizedElementaryStream::StreamType_MPEG) {
-		     ElementaryStream *obj;
-		     while ((obj = pes->readObject()) != NULL) {
-			ISO13818_MPEGHeader *mpeg = (ISO13818_MPEGHeader *)obj;
-			//printf("PES get: \n"); mpeg->hexdump(2, &std::cout);
-			if (writer_status.is(WriterStatus::WaitingForGOP)) {
-			   uint8 c = mpeg->start_code();
-			   if (c == ISO13818_MPEGStream::StartCode_GroupOfPictures) {
-			      if (seconds_to_record > 0) {
-				 writer_status.startTimedWriting();
-			      } else {
-				 writer_status.startWriting();
-			      }
-			      break;
-			   }
-			} else {
-			   // Just discard it
-			}
-			//ISO13818_MPEGStream::dumpHeader(mpeg);
-			delete obj;
-		     }
-		  }
-	       }
-	    }
 	    /*----------------------------
 	     * Store rawdata for debugging
 	     */
@@ -423,9 +387,68 @@ int main(int argc, char *argv[]) {
 	    }
 
 	    /*----------------------------
-	     * Skip Leading Packets?
+	     * Actions by status
 	     */
-	    if (writer_status.is(WriterStatus::SkippingLeadingPackets)) {
+	    if (writer_status.is(WriterStatus::WaitingForPMT)) {
+	       /*----------------------------
+		* Spool
+		*/
+	       if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
+		  spool->flush();
+	       }
+	       if (spool->length() < probe_size) {
+		  spool->append(*(ts.packet->getRawdata()));
+	       } else {
+		  // spool is full. push all the data in the spool back into input stream and stop spooling
+		  for (int i = probe_size - 1; i >= 0; i--) {
+		     const ByteArray *rawdata = spool->dataAt(i);
+		     bisp->unread(*rawdata);
+		     //assert(rawdata->length() == SIZEOF_PACKET);
+		     //ofsp->write((const char *)rawdata->part(), rawdata->length());
+		  }
+		  delete spool;
+		  spool = NULL;
+		  ts.reset();
+		  writer_status.PMTHasFound(opt_g, seconds_to_record);
+	       }
+	    } else if (writer_status.is(WriterStatus::WaitingForGOP)) {
+	       /*----------------------------
+		* Decode PES
+		*/
+	       ISO13818_PacketizedElementaryStream *pes = pes_manager.getPES(ts.packet->PID());
+	       if (pes != NULL && ts.packet->has_payload()) {
+		  if (ts.packet->payload_unit_start_indicator()) {
+		     pes->startUnit(ts.getStreamTime(), ts.packet->getPayload());
+		  } else {
+		     pes->putUnit(ts.packet->getPayload());
+		  }
+		  if (pes->getStreamType() == ISO13818_PacketizedElementaryStream::StreamType_MPEG) {
+		     ElementaryStream *obj;
+		     while ((obj = pes->readObject()) != NULL) {
+			ISO13818_MPEGHeader *mpeg = (ISO13818_MPEGHeader *)obj;
+			//printf("PES get: \n"); mpeg->hexdump(2, &std::cout);
+			if (writer_status.is(WriterStatus::WaitingForGOP)) {
+			   uint8 c = mpeg->start_code();
+			   if (c == ISO13818_MPEGStream::StartCode_GroupOfPictures) {
+			      if (seconds_to_record > 0) {
+				 writer_status.startTimedWriting();
+			      } else {
+				 writer_status.startWriting();
+			      }
+			      break;
+			   }
+			} else {
+			   // Just discard it
+			}
+			//ISO13818_MPEGStream::dumpHeader(mpeg);
+			delete obj;
+		     }
+		  }
+	       }
+	    } else if (writer_status.is(WriterStatus::SkippingLeadingPackets)) {
+	       /*----------------------------
+		* Skip Leading Packets?
+		*/
 	       const ProgramClock now = ts.getStreamTime();
 	       if (skip_until == NULL) {
 		  if (now.isInitialized()) {
@@ -452,12 +475,10 @@ int main(int argc, char *argv[]) {
 		     writer_status.skipHasCompleted(opt_g, seconds_to_record);
 		  }
 	       }
-	    }
-
-	    /*----------------------------
-	     * Skip until TimeDateSection?
-	     */
-	    if (writer_status.is(WriterStatus::WaitingForTDS)) {
+	    } else if (writer_status.is(WriterStatus::WaitingForTDS)) {
+	       /*----------------------------
+		* Skip until TimeDateSection?
+		*/
 	       if (ts.checkTSEvent(TSEvent_Update_Time)) {
 		  if (seconds_to_record > 0) {
 		     writer_status.startTimedWriting();
@@ -465,12 +486,10 @@ int main(int argc, char *argv[]) {
 		     writer_status.startWriting();
 		  }
 	       }
-	    }
-
-	    /*----------------------------
-	     * Check Write Timer
-	     */
-	    if (writer_status.is(WriterStatus::WritingByTime)) {
+	    } else if (writer_status.is(WriterStatus::WritingByTime)) {
+	       /*----------------------------
+		* Check Write Timer
+		*/
 	       assert(seconds_to_record != 0);
 	       const ProgramClock now = ts.getStreamTime();
 	       if (record_until == NULL) {
@@ -491,38 +510,15 @@ int main(int argc, char *argv[]) {
 		     break;
 		  }
 	       }
-	    }
-
-	    /*----------------------------
-	     * Spool
-	     */
-	    if (writer_status.is(WriterStatus::WaitingForPMT)) {
-	       if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
-		  spool->flush();
-	       } else {
-		  if (spool->length() < probe_size) {
-		     spool->append(*(ts.packet->getRawdata()));
-		  } else {
-		     // spool is full. push all the data in the spool back into input stream and stop spooling
-		     for (int i = probe_size - 1; i >= 0; i--) {
-			const ByteArray *rawdata = spool->dataAt(i);
-			bisp->unread(*rawdata);
-			//assert(rawdata->length() == SIZEOF_PACKET);
-			//ofsp->write((const char *)rawdata->part(), rawdata->length());
-		     }
-		     delete spool;
-		     spool = NULL;
-		     ts.reset();
-		     writer_status.PMTHasFound(opt_g, seconds_to_record);
-		  }
+	       if (pidFilter.isActive(ts.packet->PID())) {
+		  const ByteArray *rawdata = ts.packet->getRawdata();
+		  assert(rawdata->length() == SIZEOF_PACKET);
+		  ofsp->write((const char *)rawdata->part(), rawdata->length());
 	       }
-	    }
-	    
-	    /*----------------------------
-	     * Write output stream
-	     */
-	    if (writer_status.is(WriterStatus::Writing |
-				 WriterStatus::WritingByTime)) {
+	    } else if (writer_status.is(WriterStatus::Writing)) {
+	       /*----------------------------
+		* Write output stream
+		*/
 	       if (pidFilter.isActive(ts.packet->PID())) {
 		  const ByteArray *rawdata = ts.packet->getRawdata();
 		  assert(rawdata->length() == SIZEOF_PACKET);
