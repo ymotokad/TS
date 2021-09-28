@@ -497,7 +497,7 @@ int main(int argc, char *argv[]) {
 	     * Spool
 	     */
 	    if (writer_status.is(WriterStatus::WaitingForPMT)) {
-	       if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable | TSEvent_Update_EventInformationTable_Actual_Present)) {
+	       if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
 		  spool->flush();
 	       } else {
 		  if (spool->length() < probe_size) {
