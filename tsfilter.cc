@@ -25,8 +25,26 @@
 #include "ISO13818_MPEGStream.h"
 #include "StdLogger.h"
 #include "Spool.h"
+//#define DEBUG_PROBE
+#ifdef DEBUG_PROBE
+#include <stdarg.h>
+#endif
 
 static char rcsid[] = "@(#)$Id$";
+
+#ifdef DEBUG_PROBE
+static void debug(const char* format, ...) {
+   FILE *fp = fopen("/tmp/tsfilter.log", "a");
+   if (fp != NULL) {
+      va_list args;
+      va_start(args, format);
+      vfprintf(fp, format, args);
+      va_end(args);
+      fprintf(fp, "\n");
+      fclose(fp);
+   }
+}
+#endif
 
 Logger *logger;
 
@@ -42,7 +60,7 @@ static void usage(const char *argv0) {
    std::cerr << "   -g            sybchronize with GOP at begining" << std::endl;
    std::cerr << "   -m            skip until the first TimeDateSection, which usually transfered every 5 seconds" << std::endl;
    std::cerr << "   -k N          probe leading N packets and skip until begining of the program, which is judged by Program Map Table change" << std::endl;
-   std::cerr << "   -s seconds    skip begining packets for specified seconds" << std::endl;
+   std::cerr << "   -s seconds    skip begining packets for specified seconds. seconds should be in format of <sigits>[.<digits>]" << std::endl;
    std::cerr << "   -t seconds    stop after writing specified seconds of packets to output stream" << std::endl;
    std::cerr << "   -r filename   store first 100MB of the inputfile for debugging" << std::endl;
 }
@@ -192,9 +210,10 @@ int main(int argc, char *argv[]) {
    char *opt_r = NULL;
    int program_id = -1;
    int probe_size = 0;
-   int seconds_to_skip = 0;
+   double seconds_to_skip = 0.0;
    int seconds_to_record = 0;
    ByteArraySpool *spool = NULL;
+   int num_packets_to_probe = 0;
 
    // Parse command line options.
    int option_char;
@@ -228,7 +247,7 @@ int main(int argc, char *argv[]) {
 	 probe_size = atoi(optarg);
 	 break;
       case 's':
-	 seconds_to_skip = atoi(optarg);
+	 seconds_to_skip = atof(optarg);
 	 break;
       case 't':
 	 seconds_to_record = atoi(optarg);
@@ -249,13 +268,13 @@ int main(int argc, char *argv[]) {
       usage(argv0);
       return 1;
    }
-   if (seconds_to_skip > 0 && probe_size > 0) {
+   if (seconds_to_skip > 0.0 && probe_size > 0) {
       std::cerr << argv0 << ": -k cannot be combined with -s" << std::endl;
       return 1;
    }
    
    WriterStatus writer_status;
-   if (seconds_to_skip > 0) {
+   if (seconds_to_skip > 0.0) {
       writer_status.skipLeadingPacket();
    } else if (probe_size > 0) {
       writer_status.waitForPMT();
@@ -299,7 +318,11 @@ int main(int argc, char *argv[]) {
       }
    }
    if (probe_size > 0) {
+      volatile char *heap_reserver;
+      heap_reserver = new char[10 * 1024 * 1024];
       spool = new ByteArraySpool(probe_size);
+      num_packets_to_probe = probe_size;
+      delete heap_reserver; // Most of following new operations will use this space, which is younger address than 'spool', which will be deleted soon. Expecting this to keep the memory size of this process minimum after deleting 'spool'.
    }
    std::ofstream rfs;
    int rfs_remainingBytes = 0;
@@ -431,23 +454,29 @@ int main(int argc, char *argv[]) {
 	       /*----------------------------
 		* Spool
 		*/
-	       if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
-		  spool->flush();
-	       }
-	       if (spool->length() < probe_size) {
+	       if (num_packets_to_probe > 0) {
+		  if (ts.checkTSEvent(TSEvent_Update_ProgramMapTable)) {
+#ifdef DEBUG_PROBE
+		     debug("Effective PMT found at %d. Spooled data has been flushed.", probe_size - num_packets_to_probe);
+#endif
+		     spool->flush();
+		  }
 		  spool->append(*(ts.packet->getRawdata()));
+		  num_packets_to_probe--;
 	       } else {
 		  // spool is full. push all the data in the spool back into input stream and stop spooling
-		  for (int i = probe_size - 1; i >= 0; i--) {
+		  for (int i = spool->length() - 1; i >= 0; i--) {
 		     const ByteArray *rawdata = spool->dataAt(i);
 		     bisp->unread(*rawdata);
-		     //assert(rawdata->length() == SIZEOF_PACKET);
-		     //ofsp->write((const char *)rawdata->part(), rawdata->length());
 		  }
+		  bisp->unread(*(ts.packet->getRawdata()));
 		  delete spool;
 		  spool = NULL;
 		  ts.reset();
 		  writer_status.PMTHasFound(opt_g, seconds_to_record);
+#ifdef DEBUG_PROBE
+		  debug("spool length exceeded %d of probe size", probe_size);
+#endif
 	       }
 	    } else if (writer_status.is(WriterStatus::WaitingForGOP)) {
 	       /*----------------------------
@@ -491,7 +520,7 @@ int main(int argc, char *argv[]) {
 	       if (skip_until == NULL) {
 		  if (now.isInitialized()) {
 		     ProgramClock *t = new ProgramClock(now);
-		     assert(seconds_to_skip > 0);
+		     assert(seconds_to_skip > 0.0);
 		     t->append(seconds_to_skip);
 		     skip_until = t;
 		  } else {

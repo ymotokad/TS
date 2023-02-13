@@ -24,9 +24,12 @@ static char rcsid[] = "@(#)$Id$";
 #include <stdio.h>
 #include <iostream>
 #include <cerrno>
+#include <cstdio>
 #include <iconv.h>
 #define IMPLEMENTING_ADAPTATIONFIELD
+#include "StdLogger.h"
 #include "B24_Caption.h"
+
 
 
 
@@ -294,6 +297,26 @@ static int decode_katakana(std::string *ans, const ByteArray &ba, int off, bool 
    logger->debug("KATAKANA: 0x%02x", ba.at(off));
    return decode_kana(ans, ba, off, hidden, 0xa5);
 }
+static int decode_unsupported1(std::string *ans, const ByteArray &ba, int off, bool hidden) {
+   logger->debug("Decode Unsupported1: 0x%02x", ba.at(off));
+   return 1;
+}
+static int decode_unsupported2(std::string *ans, const ByteArray &ba, int off, bool hidden) {
+   logger->debug("Decode Unsupported2: 0x%02x%02x", ba.at(off), ba.at(off + 1));
+   return 2;
+}
+
+static int (*designate_1byte_G_set(unsigned char f))(std::string *, const ByteArray &, int, bool) {
+   if (f == 0x42) return decode_kanji;
+   if (f == 0x4a) return decode_eisu;
+   if (f == 0x30) return decode_hiragana;
+   if (f == 0x31) return decode_katakana;
+
+   return decode_eisu;
+}
+static int (*designate_1byte_DRCS(unsigned char f))(std::string *, const ByteArray &, int, bool) {
+   return decode_unsupported1;
+}
 
 #define IN_GL_P(c) (0x20 < (c) && (c) < 0x7f)
 #define IN_GR_P(c) (0xa0 < (c) && (c) < 0xff)
@@ -302,13 +325,13 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
    if (data_unit_parameter() != 0x20) return;
 
    std::string ans;
-   // Default designations defined at Table 8-2 in B24
+   // Default invokations defined at Table 8-2 in B24
    int (*decode_G0)(std::string *, const ByteArray &, int, bool) = decode_kanji;
-   int (*decode_G1)(std::string *, const ByteArray &, int, bool) = decode_katakana;
+   int (*decode_G1)(std::string *, const ByteArray &, int, bool) = decode_eisu;
    int (*decode_G2)(std::string *, const ByteArray &, int, bool) = decode_hiragana;
-   int (*decode_G3)(std::string *, const ByteArray &, int, bool) = decode_eisu;
-   int (*decode_GL)(std::string *, const ByteArray &, int, bool) = decode_G0;
-   int (*decode_GR)(std::string *, const ByteArray &, int, bool) = decode_G2;
+   int (*decode_G3)(std::string *, const ByteArray &, int, bool) = decode_katakana;
+   int (**decode_GL)(std::string *, const ByteArray &, int, bool) = &decode_G0;
+   int (**decode_GR)(std::string *, const ByteArray &, int, bool) = &decode_G2;
 
    bool font_small = false;
    const ByteArray stream = getCaptionStream();
@@ -326,31 +349,61 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 	    writer->flush();
 	    break;
 	 case 0x0e: // LS1
-	    logger->debug("LS1");
-	    decode_GL = decode_G1;
+	    logger->debug("LS1 (G1 to GL)");
+	    decode_GL = &decode_G1;
 	    break;
 	 case 0x0f: // LS0
-	    logger->debug("LS0");
-	    decode_GL = decode_G0;
+	    logger->debug("LS0 (G0 to GL)");
+	    decode_GL = &decode_G0;
 	    break;
 	 case 0x16: // PAPF
 	    idx++;
 	    logger->debug("PAPF-0x%02x", stream.at(idx));
+	    break;
+	 case 0x19: // SS2
+	    idx++;
+	    logger->debug("SS2-0x%02x", stream.at(idx));
 	    break;
 	 case 0x1b: // ESC
 	    idx++;
 	    logger->debug("ESC-0x%02x-0x%02x", ch, stream.at(idx), stream.at(idx + 1));
 	    ch2 = stream.at(idx);
 	    if (ch2 == 0x7e) { // LS1R
-	       decode_GR = decode_G1;
+	       decode_GR = &decode_G1;
 	    } else if (ch2 == 0x7d) { // LS2R
-	       decode_GR = decode_G2;
+	       decode_GR = &decode_G2;
 	    } else if (ch2 == 0x7c) { // LS3R
-	       decode_GR = decode_G3;
+	       decode_GR = &decode_G3;
 	    } else if (ch2 == 0x6e) { // LS2
-	       decode_GL = decode_G2;
+	       decode_GL = &decode_G2;
 	    } else if (ch2 == 0x6f) { // LS3
-	       decode_GL = decode_G3;
+	       decode_GL = &decode_G3;
+	    } else if (ch2 == 0x28 || ch2 == 0x29 || ch2 == 0x2a || ch2 == 0x2b) {
+	       idx++;
+	       unsigned char ch3 = stream.at(idx);
+	       if (ch3 == 0x20) { // 1 byte DRCS
+		  idx++;
+		  unsigned char ch4 = stream.at(idx);
+		  if (ch2 == 0x28) {
+		     decode_G0 = designate_1byte_DRCS(ch4);
+		  } else if (ch2 == 0x29) {
+		     decode_G1 = designate_1byte_DRCS(ch4);
+		  } else if (ch2 == 0x2a) {
+		     decode_G2 = designate_1byte_DRCS(ch4);
+		  } else if (ch2 == 0x2b) {
+		     decode_G3 = designate_1byte_DRCS(ch4);
+		  }
+	       } else { // 1 byte G set
+		  if (ch2 == 0x28) {
+		     decode_G0 = designate_1byte_G_set(ch3);
+		  } else if (ch2 == 0x29) {
+		     decode_G1 = designate_1byte_G_set(ch3);
+		  } else if (ch2 == 0x2a) {
+		     decode_G2 = designate_1byte_G_set(ch3);
+		  } else if (ch2 == 0x2b) {
+		     decode_G3 = designate_1byte_G_set(ch3);
+		  }
+	       }
 	    }
 	    break;
 	 case 0x1c: // APS
@@ -360,6 +413,11 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 	 case 0x1d: // SS3
 	    idx++;
 	    logger->debug("SS3-0x%02x", stream.at(idx));
+	    if (stream.at(idx) == 0x60) { //??????????
+	       decode_G1 = decode_eisu;
+	    } else if (stream.at(idx) == 0x61) {
+	       decode_G1 = decode_katakana;
+	    }
 	    break;
 	 case 0x20:
 	    ans += " ";
@@ -426,15 +484,21 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 	    break;
 	 case 0x9b: // CSI
 	    idx++;
-	    logger->debug("CSI-0x%02x", stream.at(idx));
 	    if (0x30 <= stream.at(idx) && stream.at(idx) <= 0x39) {
-	       idx++;
-	       for (int i = stream.length()  - idx; i >= 0; i--) {
+	       std::string dbg_str;
+	       //idx++;
+	       for (int i = stream.length() - idx; i >= 0; i--) {
 		  ch2 = stream.at(idx);
+		  char buf[8];
+		  sprintf(buf, "0x%02x, ", ch2);
+		  dbg_str += buf;
 		  if (ch2 == 0x53) break; // SWF
 		  if (ch2 == 0x54) break; // CCC
 		  if (ch2 == 0x6e) break; // RCS
-		  if (ch2 == 0x61) break; // ACPS
+		  if (ch2 == 0x61) {
+		     if (ans.length() > 0) ans += "\\N";
+		     break; // ACPS
+		  }
 		  if (ch2 == 0x56) break; // SDF
 		  if (ch2 == 0x5f) break; // SDP
 		  if (ch2 == 0x57) break; // SSM
@@ -457,6 +521,9 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 		  if (ch2 < 0x20 || 0x3f < ch2) break; // for safety
 		  idx++;
 	       }
+	       logger->debug("CSI-%s", dbg_str.c_str());
+	    } else {
+	       logger->debug("CSI-0x%02x", stream.at(idx));
 	    }
 	    break;
 	 case 0x9d: // TIME
@@ -476,10 +543,10 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 	    break;
 	 default:
 	    if (IN_GR_P(ch)) {
-	       int n = decode_GR(&ans, stream, idx, font_small == true);
+	       int n = (*decode_GR)(&ans, stream, idx, font_small == true);
 	       idx += n - 1;
 	    } else if (IN_GL_P(ch)) {
-	       int n = decode_GL(&ans, stream, idx, font_small == true);
+	       int n = (*decode_GL)(&ans, stream, idx, font_small == true);
 	       idx += n - 1;
 	    } else if (0x80 <= ch && ch <= 0x87) { // BKF - WHF
 	       logger->debug("BKF-WHF");

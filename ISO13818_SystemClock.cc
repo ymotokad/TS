@@ -80,6 +80,7 @@ char *ProgramClock::toString(char *buf) const {
    hour = min / 60;
    min -= hour * 60;
    sprintf(buf, "%02d:%02d:%02d.%03d", hour, min, sec, msec);
+   sprintf(buf, "%02d:%02d:%02d.%03d (%lld.%03d)", hour, min, sec, msec, clock_base, clock_ext);
    return buf;
 }
 

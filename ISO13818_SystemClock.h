@@ -25,6 +25,7 @@
 static const char *rcsid_ISO13818_SystemClock = "@(#)$Id$";
 #endif /* IMPLEMENTING_ISO13818_SYSTEMCLOCK */
 #include <ctime>
+#include <math.h>
 #include "TSTypes.h"
 
 #undef ISO13818_SYSTEMCLOCK_DEBUG
@@ -45,6 +46,7 @@ class ProgramClock {
    void set(const ProgramClock &src);
    void sync(uint64 base, uint16 ext);
    void append(int seconds);
+   void append(double seconds);
    void appendMilliSeconds(int mseconds);
    const ProgramClock &subtract(const ProgramClock &right);
    bool isGreaterThan(const ProgramClock &right) const;
@@ -117,6 +119,14 @@ inline void ProgramClock::set(const ProgramClock &src) {
 inline void ProgramClock::append(int seconds) {
    assert(initialized);
    clock_base += ((int64)seconds * TS_CLOCK_BASE_FREQUENCY);
+}
+
+inline void ProgramClock::append(double seconds) {
+   assert(initialized);
+   int sec = (int)floor(seconds / 1000);
+   append(sec);
+   int msec = (int)(seconds - (sec * 1000));
+   appendMilliSeconds(msec);
 }
 
 inline void ProgramClock::appendMilliSeconds(int mseconds) {

@@ -225,6 +225,12 @@ int main(int argc, char *argv[]) {
 	    ts.programs_updated.clear();
 	 }
       }
+
+      if (!writer.empty()) {
+	 writer.tellTime(ts.getStreamTime());
+	 writer.flush();
+      }
+      
    } catch (const std::ios::failure& error) {
       std::cerr << "I/O exception: " << error.what() << std::endl;
       return 1;
