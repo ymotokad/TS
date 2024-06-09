@@ -255,6 +255,10 @@ void AssWriter::flush() {
 	 *ofsp << "ScaledBorderAndShadow: yes" << std::endl;
 	 *ofsp << "Timer: 100.0000" << std::endl;
 	 *ofsp << std::endl;
+	 *ofsp << "[V4+ Styles]" << std::endl;
+	 *ofsp << "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding" << std::endl;
+	 *ofsp << "Style: Default,Serif,18,&Hffffff,&Hffffff,&H0,&H0,0,0,0,0,100,100,0,0,1,1,0,2,10,10,10,0" << std::endl;
+	 *ofsp << std::endl;
 	 *ofsp << "[Events]" << std::endl;
 	 *ofsp << "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text" << std::endl;
 	 initialized = true;
