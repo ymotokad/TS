@@ -246,20 +246,26 @@ ByteArray B24_Caption_DataUnit::getCaptionStream() const {
 }
 
 static std::string euc2utf8(unsigned char p0, unsigned char p1);
-static int decode_kanji(std::string *ans, const ByteArray &ba, int off, bool hidden) {
+static int decode_kanji(std::string *ans, const ByteArray &ba, int off, bool hidden, bool begining_of_line) {
    logger->debug("KANJI: 0x%02x%02x", ba.at(off), ba.at(off + 1));
    if (!hidden) {
       unsigned char c0 = ba.at(off) | 0x80;
       unsigned char c1 = ba.at(off + 1) | 0x80;
+      if (begining_of_line == true && c0 == 0xa1 && c1 == 0xa1) { // Just return if it is a space character at the begining of line
+         return 2;
+      }
       *ans += euc2utf8(c0, c1);
    }
    return 2;
 }
 
-static int decode_eisu(std::string *ans, const ByteArray &ba, int off, bool hidden) {
+static int decode_eisu(std::string *ans, const ByteArray &ba, int off, bool hidden, bool begining_of_line) {
    logger->debug("EISU: 0x%02x", ba.at(off));
    if (!hidden) {
       unsigned char c0 = ba.at(off) & 0x7f;
+      if (begining_of_line == true && c0 == ' ') { // Just return if it is a space character at the begining of line
+         return 1;
+      }
       *ans += c0;
    }
    return 1;
@@ -289,24 +295,24 @@ static int decode_kana(std::string *ans, const ByteArray &ba, int off, bool hidd
    }
    return 1;
 }
-static int decode_hiragana(std::string *ans, const ByteArray &ba, int off, bool hidden) {
+static int decode_hiragana(std::string *ans, const ByteArray &ba, int off, bool hidden, bool begining_of_line) {
    logger->debug("HIRAGANA: 0x%02x", ba.at(off));
    return decode_kana(ans, ba, off, hidden, 0xa4);
 }
-static int decode_katakana(std::string *ans, const ByteArray &ba, int off, bool hidden) {
+static int decode_katakana(std::string *ans, const ByteArray &ba, int off, bool hidden, bool begining_of_line) {
    logger->debug("KATAKANA: 0x%02x", ba.at(off));
    return decode_kana(ans, ba, off, hidden, 0xa5);
 }
-static int decode_unsupported1(std::string *ans, const ByteArray &ba, int off, bool hidden) {
+static int decode_unsupported1(std::string *ans, const ByteArray &ba, int off, bool hidden, bool begining_of_line) {
    logger->debug("Decode Unsupported1: 0x%02x", ba.at(off));
    return 1;
 }
-static int decode_unsupported2(std::string *ans, const ByteArray &ba, int off, bool hidden) {
+static int decode_unsupported2(std::string *ans, const ByteArray &ba, int off, bool hidden, bool begining_of_line) {
    logger->debug("Decode Unsupported2: 0x%02x%02x", ba.at(off), ba.at(off + 1));
    return 2;
 }
 
-static int (*designate_1byte_G_set(unsigned char f))(std::string *, const ByteArray &, int, bool) {
+static int (*designate_1byte_G_set(unsigned char f))(std::string *, const ByteArray &, int, bool, bool) {
    if (f == 0x42) return decode_kanji;
    if (f == 0x4a) return decode_eisu;
    if (f == 0x30) return decode_hiragana;
@@ -314,7 +320,7 @@ static int (*designate_1byte_G_set(unsigned char f))(std::string *, const ByteAr
 
    return decode_eisu;
 }
-static int (*designate_1byte_DRCS(unsigned char f))(std::string *, const ByteArray &, int, bool) {
+static int (*designate_1byte_DRCS(unsigned char f))(std::string *, const ByteArray &, int, bool, bool) {
    return decode_unsupported1;
 }
 
@@ -325,13 +331,15 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
    if (data_unit_parameter() != 0x20) return;
 
    std::string ans;
+   int col = 0;
+   int font_color = 0;
    // Default invokations defined at Table 8-2 in B24
-   int (*decode_G0)(std::string *, const ByteArray &, int, bool) = decode_kanji;
-   int (*decode_G1)(std::string *, const ByteArray &, int, bool) = decode_eisu;
-   int (*decode_G2)(std::string *, const ByteArray &, int, bool) = decode_hiragana;
-   int (*decode_G3)(std::string *, const ByteArray &, int, bool) = decode_katakana;
-   int (**decode_GL)(std::string *, const ByteArray &, int, bool) = &decode_G0;
-   int (**decode_GR)(std::string *, const ByteArray &, int, bool) = &decode_G2;
+   int (*decode_G0)(std::string *, const ByteArray &, int, bool, bool) = decode_kanji;
+   int (*decode_G1)(std::string *, const ByteArray &, int, bool, bool) = decode_eisu;
+   int (*decode_G2)(std::string *, const ByteArray &, int, bool, bool) = decode_hiragana;
+   int (*decode_G3)(std::string *, const ByteArray &, int, bool, bool) = decode_katakana;
+   int (**decode_GL)(std::string *, const ByteArray &, int, bool, bool) = &decode_G0;
+   int (**decode_GR)(std::string *, const ByteArray &, int, bool, bool) = &decode_G2;
 
    bool font_small = false;
    const ByteArray stream = getCaptionStream();
@@ -343,10 +351,12 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 	 switch (ch) {
 	 case 0x0a: // LF
 	    ans += "\\N";
+	    col = 0;
 	    break;
 	 case 0x0c:
 	    logger->debug("FF");
 	    writer->flush();
+	    col = 0;
 	    break;
 	 case 0x0e: // LS1
 	    logger->debug("LS1 (G1 to GL)");
@@ -496,7 +506,10 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 		  if (ch2 == 0x54) break; // CCC
 		  if (ch2 == 0x6e) break; // RCS
 		  if (ch2 == 0x61) {
-		     if (ans.length() > 0) ans += "\\N";
+		     if (col > 0) {
+		        ans += "\\N";
+			col = 0;
+		     }
 		     break; // ACPS
 		  }
 		  if (ch2 == 0x56) break; // SDF
@@ -543,14 +556,33 @@ void B24_Caption_DataUnit::convert(CaptionWriter *writer) {
 	    break;
 	 default:
 	    if (IN_GR_P(ch)) {
-	       int n = (*decode_GR)(&ans, stream, idx, font_small == true);
+               int len_before = ans.length();
+	       int n = (*decode_GR)(&ans, stream, idx, font_small == true, col == 0);
 	       idx += n - 1;
+	       col += ans.length() - len_before;
 	    } else if (IN_GL_P(ch)) {
-	       int n = (*decode_GL)(&ans, stream, idx, font_small == true);
+               int len_before = ans.length();
+	       int n = (*decode_GL)(&ans, stream, idx, font_small == true, col == 0);
 	       idx += n - 1;
+	       col += ans.length() - len_before;
 	    } else if (0x80 <= ch && ch <= 0x87) { // BKF - WHF
-	       logger->debug("BKF-WHF");
-	       ;
+               static const char *coltag[] = {
+                  "BKF",
+                  "RDF",
+                  "GRF",
+                  "YLF",
+                  "BLF",
+                  "MGF",
+                  "CNF",
+                  "WHF"
+               };
+	       logger->debug(coltag[ch - 0x80]);
+	       // Break line unless it is brank
+	       if (ch != font_color && col > 0) {
+		  ans += "\\N";
+		  col = 0;
+	       }
+	       font_color = ch;
 	    } else {
 	       //printf("{? %02x}", stream.at(idx));
 	    }
